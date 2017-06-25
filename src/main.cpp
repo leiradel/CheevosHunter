@@ -374,13 +374,12 @@ public:
 
     if (_state == State::kPaused || _state == State::kRunning)
     {
+      if (ImGui::CollapsingHeader("Basic Information"))
       {
         static const char* pixel_formats[] =
         {
           "0RGB1555", "XRGB8888", "RGB565"
         };
-
-        ImGui::Text("Basic Information");
         
         enum retro_pixel_format ndx = _core.getPixelFormat();
         const char* pixel_format = "Unknown";
@@ -407,9 +406,8 @@ public:
         );
       }
 
+      if (ImGui::CollapsingHeader("retro_system_info"))
       {
-        ImGui::Text("retro_system_info");
-        
         const struct retro_system_info* info = _core.getSystemInfo();
 
         table(
@@ -423,9 +421,8 @@ public:
         );
       }
 
+      if (ImGui::CollapsingHeader("retro_system_av_info"))
       {
-        ImGui::Text("retro_system_av_info");
-        
         const struct retro_system_av_info* av_info = _core.getSystemAVInfo();
 
         table(
@@ -441,9 +438,8 @@ public:
         );
       }
 
+      if (ImGui::CollapsingHeader("retro_input_descriptor"))
       {
-        ImGui::Text("retro_input_descriptor");
-
         unsigned count;
         const struct retro_input_descriptor* desc = _core.getInputDescriptors(&count);
         const struct retro_input_descriptor* end = desc + count;
@@ -507,9 +503,8 @@ public:
         ImGui::EndChild();
       }
 
+      if (ImGui::CollapsingHeader("retro_controller_info"))
       {
-        ImGui::Text("retro_controller_info");
-
         unsigned count;
         const struct retro_controller_info* info = _core.getControllerInfo(&count);
         const struct retro_controller_info* end = info + count;
@@ -551,9 +546,8 @@ public:
         ImGui::Separator();
       }
 
+      if (ImGui::CollapsingHeader("retro_variable"))
       {
-        ImGui::Text("retro_variable");
-
         unsigned count;
         const struct retro_variable* var = _core.getVariables(&count);
         const struct retro_variable* end = var + count;
@@ -578,9 +572,8 @@ public:
         ImGui::Separator();
       }
 
+      if (ImGui::CollapsingHeader("retro_subsystem_info"))
       {
-        ImGui::Text("retro_subsystem_info");
-
         unsigned count;
         const struct retro_subsystem_info* info = _core.getSubsystemInfo(&count);
         const struct retro_subsystem_info* end = info + count;
@@ -683,9 +676,8 @@ public:
         }
       }
 
+      if (ImGui::CollapsingHeader("retro_memory_map"))
       {
-        ImGui::Text("retro_memory_map");
-
         const struct retro_memory_map* mmap = _core.getMemoryMap();
         const struct retro_memory_descriptor* desc = mmap->descriptors;
         const struct retro_memory_descriptor* end = desc + mmap->num_descriptors;
