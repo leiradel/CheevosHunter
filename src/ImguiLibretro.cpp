@@ -558,9 +558,10 @@ bool Video::supportsContext(enum retro_hw_context_type type)
   case RETRO_HW_CONTEXT_OPENGLES3:
   case RETRO_HW_CONTEXT_OPENGLES_VERSION:
     return true;
+  
+  default:
+    return false;
   }
-
-  return false;
 }
 
 uintptr_t Video::getCurrentFramebuffer()
@@ -800,7 +801,7 @@ void Input::draw()
       char label[512];
       snprintf(label, sizeof(label), "%s (%u)", pad->_controllerName, count);
 
-      if (ImGui::CollapsingHeader(label))
+      if (ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen))
       {
         char id[32];
         snprintf(id, sizeof(id), "%p", pad);
