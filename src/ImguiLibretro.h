@@ -100,6 +100,11 @@ public:
 
   virtual bool setGeometry(unsigned width, unsigned height, float aspect, enum retro_pixel_format pixelFormat, bool needsHardwareRender) override;
   virtual void refresh(const void* data, unsigned width, unsigned height, size_t pitch) override;
+
+  virtual bool                 supportsContext(enum retro_hw_context_type type) override;
+  virtual uintptr_t            getCurrentFramebuffer() override;
+  virtual retro_proc_address_t getProcAddress(const char* symbol) override;
+
   virtual void showMessage(const char* msg, unsigned frames) override;
 
 protected:

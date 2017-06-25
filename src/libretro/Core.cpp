@@ -124,6 +124,23 @@ namespace
       (void)pitch;
     }
 
+    virtual bool supportsContext(enum retro_hw_context_type type) override
+    {
+      (void)type;
+      return false;
+    }
+
+    virtual uintptr_t getCurrentFramebuffer() override
+    {
+      return 0;
+    }
+
+    virtual retro_proc_address_t getProcAddress(const char* symbol) override
+    {
+      (void)symbol;
+      return NULL;
+    }
+
     virtual void showMessage(const char* msg, unsigned frames) override
     {
       (void)msg;
@@ -257,7 +274,6 @@ bool libretro::Core::init(const Components* components)
   _libretroPath = NULL;
   _performanceLevel = 0;
   _pixelFormat = RETRO_PIXEL_FORMAT_UNKNOWN;
-  _needsHardwareRender = false;
   _supportsNoGame = false;
   _rotation = 0;
   _supportAchievements = false;
@@ -268,7 +284,7 @@ bool libretro::Core::init(const Components* components)
   _variablesCount = 0;
   _variables = NULL;
   
-  _hardwareRenderCallback = NULL;
+  _needsHardwareRender = false;
   
   _subsystemInfoCount = 0;
   _subsystemInfo = NULL;
@@ -463,9 +479,9 @@ bool libretro::Core::initCore()
 
 bool libretro::Core::initAV()
 {
-  if (_needsHardwareRender && _hardwareRenderCallback != NULL)
+  if (_needsHardwareRender)
   {
-    _hardwareRenderCallback->context_reset();
+    _hardwareRenderCallback.context_reset();
   }
 
   _core.setVideoRefresh(s_videoRefreshCallback);
@@ -685,7 +701,6 @@ bool libretro::Core::setDiskControlInterface(const struct retro_disk_control_cal
 
 bool libretro::Core::setHWRender(struct retro_hw_render_callback* data)
 {
-#if 0
   static const char* context_type_desc[] =
   {
     "RETRO_HW_CONTEXT_NONE",
@@ -697,15 +712,21 @@ bool libretro::Core::setHWRender(struct retro_hw_render_callback* data)
     "RETRO_HW_CONTEXT_VULKAN",
   };
   
-  data->get_current_framebuffer = _getCurrentFramebufferCB;
-  data->get_proc_address = _getProcAddressCB;
-  
   const char* context_type = "?";
   
   if (data->context_type >= 0 && data->context_type < sizeof(context_type_desc) / sizeof(context_type_desc[0]))
   {
     context_type = context_type_desc[data->context_type];
   }
+  
+  if (!_video->supportsContext(data->context_type))
+  {
+    error("Context type not supported: %s", context_type);
+    return false;
+  }
+
+  data->get_current_framebuffer = s_getCurrentFramebuffer;
+  data->get_proc_address = s_getProcAddress;
   
   debug("retro_hw_render_callback");
   debug("  context_type:            %s", context_type);
@@ -722,11 +743,8 @@ bool libretro::Core::setHWRender(struct retro_hw_render_callback* data)
   debug("  debug_context:           %s", data->debug_context ? "true" : "false");
   
   _hardwareRenderCallback = *data;
+  _needsHardwareRender = true;
   return true;
-#endif
-  (void)data;
-  error("%s isn't implemented", __FUNCTION__);
-  return false;
 }
 
 bool libretro::Core::getVariable(struct retro_variable* data)
@@ -1387,6 +1405,16 @@ void libretro::Core::inputPollCallback()
   return _input->poll();
 }
 
+uintptr_t libretro::Core::getCurrentFramebuffer()
+{
+  return _video->getCurrentFramebuffer();
+}
+
+retro_proc_address_t libretro::Core::getProcAddress(const char* symbol)
+{
+  return _video->getProcAddress(symbol);
+}
+
 void libretro::Core::logCallback(enum retro_log_level level, const char *fmt, va_list args)
 {
   _logger->vprintf(level, fmt, args);
@@ -1420,6 +1448,16 @@ int16_t libretro::Core::s_inputStateCallback(unsigned port, unsigned device, uns
 void libretro::Core::s_inputPollCallback()
 {
   s_instance->inputPollCallback();
+}
+
+uintptr_t libretro::Core::s_getCurrentFramebuffer()
+{
+  return s_instance->getCurrentFramebuffer();
+}
+
+retro_proc_address_t libretro::Core::s_getProcAddress(const char* symbol)
+{
+  return s_instance->getProcAddress(symbol);
 }
 
 void libretro::Core::s_logCallback(enum retro_log_level level, const char *fmt, ...)

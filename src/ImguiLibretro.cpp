@@ -546,6 +546,33 @@ void Video::refresh(const void* data, unsigned width, unsigned height, size_t pi
   }
 }
 
+bool Video::supportsContext(enum retro_hw_context_type type)
+{
+  // TODO Do we really support all those types?
+
+  switch (type)
+  {
+  case RETRO_HW_CONTEXT_OPENGL:
+  case RETRO_HW_CONTEXT_OPENGLES2:
+  case RETRO_HW_CONTEXT_OPENGL_CORE:
+  case RETRO_HW_CONTEXT_OPENGLES3:
+  case RETRO_HW_CONTEXT_OPENGLES_VERSION:
+    return true;
+  }
+
+  return false;
+}
+
+uintptr_t Video::getCurrentFramebuffer()
+{
+  return 0;
+}
+
+retro_proc_address_t Video::getProcAddress(const char* symbol)
+{
+  return (retro_proc_address_t)SDL_GL_GetProcAddress(symbol);
+}
+
 void Video::showMessage(const char* msg, unsigned frames)
 {
   _logger->printf(RETRO_LOG_INFO, "OSD message (%u): %s", frames, msg);
