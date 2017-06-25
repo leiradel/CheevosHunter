@@ -786,10 +786,15 @@ public:
     {
       static ImGuiFs::Dialog coreDialog;
 
+      ImVec2 fileDialogPos = ImVec2(
+        (ImGui::GetIO().DisplaySize.x - coreDialog.WindowSize.x) / 2.0f,
+        (ImGui::GetIO().DisplaySize.y - coreDialog.WindowSize.y) / 2.0f
+      );
+
 #ifdef _WIN32
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".dll");
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #else
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".so");
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #endif
 
       if (strlen(path) > 0)
@@ -832,7 +837,7 @@ public:
       }
 
       static ImGuiFs::Dialog gameDialog;
-      path = gameDialog.chooseFileDialog(loadGamePressed, _gameFolder.c_str(), _extensions.c_str());
+      path = gameDialog.chooseFileDialog(loadGamePressed, _gameFolder.c_str(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
 
       if (strlen(path) > 0)
       {
