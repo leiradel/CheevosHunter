@@ -248,6 +248,8 @@ bool libretro::Core::init(const Components* components)
     if (components->_loader != NULL)    _loader    = components->_loader;
     if (components->_allocator != NULL) _allocator = components->_allocator;
   }
+
+  _gameLoaded = false;
   
   _samples = NULL;
   _samplesCount = 0;
@@ -379,6 +381,7 @@ bool libretro::Core::loadGame(const char* game_path)
     }
   }
   
+  _gameLoaded = true;
   return true;
   
 error:
@@ -391,7 +394,11 @@ void libretro::Core::destroy()
 {
   InstanceSetter instance_setter(this);
 
-  _core.unloadGame();
+  if (_gameLoaded)
+  {
+    _core.unloadGame();
+  }
+
   _core.deinit();
   _core.destroy();
 }

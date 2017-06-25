@@ -49,6 +49,8 @@ protected:
   State          _state;
   libretro::Core _core;
   std::string    _extensions;
+  std::string    _coreFolder;
+  std::string    _gameFolder;
 
   static void s_audioCallback(void* udata, Uint8* stream, int len)
   {
@@ -785,9 +787,9 @@ public:
       static ImGuiFs::Dialog coreDialog;
 
 #ifdef _WIN32
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, NULL, ".dll");
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".dll");
 #else
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, NULL, ".so");
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".so");
 #endif
 
       if (strlen(path) > 0)
@@ -796,8 +798,11 @@ public:
 
         if (_core.loadCore(path))
         {
+          char folder[ImGuiFs::MAX_PATH_BYTES];
+          ImGuiFs::PathGetDirectoryName(path, folder);
+          _coreFolder = folder;
+          
           _state = State::kGetGamePath;
-
           const char* ext = _core.getSystemInfo()->valid_extensions;
 
           if (ext != NULL)
@@ -827,11 +832,33 @@ public:
       }
 
       static ImGuiFs::Dialog gameDialog;
-      path = gameDialog.chooseFileDialog(loadGamePressed, NULL, _extensions.c_str());
+      path = gameDialog.chooseFileDialog(loadGamePressed, _gameFolder.c_str(), _extensions.c_str());
 
-      if (strlen(path) > 0 && _core.loadGame(path))
+      if (strlen(path) > 0)
       {
-        _state = State::kRunning;
+        if (_core.loadGame(path))
+        {
+          char folder[ImGuiFs::MAX_PATH_BYTES];
+          ImGuiFs::PathGetDirectoryName(path, folder);
+          _gameFolder = folder;
+          
+          _state = State::kRunning;
+        }
+        else
+        {
+          _fifo.reset();
+          _logger.reset();
+          _config.reset();
+          _video.reset();
+          _audio.reset();
+          _input.reset();
+          _loader.reset();
+          _allocator.reset();
+          _extensions.clear();
+          _core.destroy();
+
+          _state = State::kGetCorePath;
+        }
       }
     }
 

@@ -192,6 +192,7 @@ namespace libretro
     AllocatorComponent*              _allocator;
         
     BareCore                         _core;
+    bool                             _gameLoaded;
     
     int16_t*                         _samples;
     size_t                           _samplesCount;
