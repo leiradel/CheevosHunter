@@ -359,7 +359,6 @@ public:
         _logger.printf(RETRO_LOG_DEBUG, "Stopped");
 
         _fifo.reset();
-        _logger.reset();
         _config.reset();
         _video.reset();
         _audio.reset();
@@ -852,7 +851,6 @@ public:
         else
         {
           _fifo.reset();
-          _logger.reset();
           _config.reset();
           _video.reset();
           _audio.reset();
@@ -860,7 +858,6 @@ public:
           _loader.reset();
           _allocator.reset();
           _extensions.clear();
-          _core.destroy();
 
           _state = State::kGetCorePath;
         }
