@@ -477,69 +477,72 @@ bool Video::setGeometry(unsigned width, unsigned height, float aspect, enum retr
 
 void Video::refresh(const void* data, unsigned width, unsigned height, size_t pitch)
 {
-  GLint previous_texture;
-  glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous_texture);
-  
-  glBindTexture(GL_TEXTURE_2D, _texture);
-  uint8_t* p = (uint8_t*)data;
-
-  GLenum type;
-  
-  switch (_pixelFormat)
+  if (data != NULL && data != RETRO_HW_FRAME_BUFFER_VALID)
   {
-  case RETRO_PIXEL_FORMAT_XRGB8888:
+    GLint previous_texture;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous_texture);
+    
+    glBindTexture(GL_TEXTURE_2D, _texture);
+    uint8_t* p = (uint8_t*)data;
+
+    GLenum type;
+    
+    switch (_pixelFormat)
     {
-      uint32_t* q = (uint32_t*)alloca(width * 4);
-
-      if (q != NULL)
+    case RETRO_PIXEL_FORMAT_XRGB8888:
       {
-        for (unsigned y = 0; y < height; y++)
+        uint32_t* q = (uint32_t*)alloca(width * 4);
+
+        if (q != NULL)
         {
-          uint32_t* r = q;
-          uint32_t* s = (uint32_t*)p;
-
-          for (unsigned x = 0; x < width; x++)
+          for (unsigned y = 0; y < height; y++)
           {
-            uint32_t color = *s++;
-            uint32_t red   = (color >> 16) & 255;
-            uint32_t green = (color >> 8) & 255;
-            uint32_t blue  = color & 255;
-            *r++ = 0xff000000UL | blue << 16 | green << 8 | red;
-          }
+            uint32_t* r = q;
+            uint32_t* s = (uint32_t*)p;
 
-          glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, width, 1, GL_RGBA, GL_UNSIGNED_BYTE, (void*)q);
-          p += pitch;
+            for (unsigned x = 0; x < width; x++)
+            {
+              uint32_t color = *s++;
+              uint32_t red   = (color >> 16) & 255;
+              uint32_t green = (color >> 8) & 255;
+              uint32_t blue  = color & 255;
+              *r++ = 0xff000000UL | blue << 16 | green << 8 | red;
+            }
+
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, width, 1, GL_RGBA, GL_UNSIGNED_BYTE, (void*)q);
+            p += pitch;
+          }
         }
       }
+      
+      goto end;
+      
+    case RETRO_PIXEL_FORMAT_RGB565:
+      type = GL_UNSIGNED_SHORT_5_6_5;
+      break;
+      
+    case RETRO_PIXEL_FORMAT_0RGB1555:
+    default:
+      type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+      break;
     }
-    
-    goto end;
-    
-  case RETRO_PIXEL_FORMAT_RGB565:
-    type = GL_UNSIGNED_SHORT_5_6_5;
-    break;
-    
-  case RETRO_PIXEL_FORMAT_0RGB1555:
-  default:
-    type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-    break;
-  }
 
-  for (unsigned y = 0; y < height; y++)
-  {
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, width, 1, GL_RGB, type, (void*)p);
-    p += pitch;
-  }
+    for (unsigned y = 0; y < height; y++)
+    {
+      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, y, width, 1, GL_RGB, type, (void*)p);
+      p += pitch;
+    }
 
-end:
-  glBindTexture(GL_TEXTURE_2D, previous_texture);
+  end:
+    glBindTexture(GL_TEXTURE_2D, previous_texture);
 
-  if (width != _width || height != _height)
-  {
-    _width = width;
-    _height = height;
+    if (width != _width || height != _height)
+    {
+      _width = width;
+      _height = height;
 
-    _logger->printf(RETRO_LOG_DEBUG, "Video refreshed with geometry %u x %u", width, height);
+      _logger->printf(RETRO_LOG_DEBUG, "Video refreshed with geometry %u x %u", width, height);
+    }
   }
 }
 
