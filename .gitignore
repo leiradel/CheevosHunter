@@ -1,2 +1,6 @@
 etc/*
 imgui.ini
+*.o
+*.exe
+*.dll
+*.so
