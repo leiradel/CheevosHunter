@@ -1,4 +1,5 @@
 #include "ImguiLibretro.h"
+#include "Memory.h"
 
 #include "imgui/imgui_impl_sdl.h"
 #include "imguiext/imguial_button.h"
@@ -34,13 +35,14 @@ protected:
   SDL_AudioSpec     _audioSpec;
   SDL_AudioDeviceID _audioDev;
 
-  Fifo      _fifo;
-  Logger    _logger;
-  Config    _config;
-  Video     _video;
-  Audio     _audio;
-  Input     _input;
-  Loader    _loader;
+  Fifo   _fifo;
+  Logger _logger;
+  Config _config;
+  Video  _video;
+  Audio  _audio;
+  Input  _input;
+  Loader _loader;
+  Memory _memory;
 
   Allocator<256 * 1024> _allocator;
 
@@ -187,8 +189,8 @@ public:
       ok = ok && _video.init(&_logger);
       ok = ok && _audio.init(&_logger, _audioSpec.freq, &_fifo);
       ok = ok && _input.init(&_logger);
-      ok = ok && _allocator.init(&_logger);
       ok = ok && _loader.init(&_logger);
+      ok = ok && _allocator.init(&_logger);
 
       if (!ok)
       {
@@ -366,6 +368,7 @@ public:
         _loader.reset();
         _allocator.reset();
         _extensions.clear();
+        _memory.destroy();
         _core.destroy();
 
         _state = State::kGetCorePath;
@@ -838,6 +841,7 @@ public:
           ImGuiFs::PathGetDirectoryName(path, folder);
           _gameFolder = folder;
           
+          _memory.init(&_core);
           _state = State::kRunning;
         }
         else
@@ -861,6 +865,11 @@ public:
     _video.draw();
     _audio.draw();
     _input.draw();
+
+    if (_state == State::kPaused || _state == State::kRunning)
+    {
+      _memory.draw();
+    }
   }
 };
 
