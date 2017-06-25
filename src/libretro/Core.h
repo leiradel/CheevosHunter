@@ -47,6 +47,7 @@ namespace libretro
 
     inline unsigned getApiVersion()            const { return _core.apiVersion(); }
     inline unsigned getRegion()                const { return _core.getRegion(); }
+    inline void*    getMemoryData(unsigned id) const { return _core.getMemoryData(id); }
     inline size_t   getMemorySize(unsigned id) const { return _core.getMemorySize(id); }
 
     inline unsigned                getPerformanceLevel()    const { return _performanceLevel; }
