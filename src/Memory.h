@@ -15,14 +15,9 @@ class Memory
 public:
   enum class Platform
   {
+    kNes,
     kSnes,
-  };
-
-  struct Block
-  {
-    unsigned    _id;
-    size_t      _start;
-    const char* _name;
+    kMasterSystem,
   };
 
   bool init(libretro::Core* core);
@@ -41,9 +36,19 @@ protected:
     MemoryEditor _editor;
   };
 
+  struct Block
+  {
+    unsigned    _id;
+    size_t      _start;
+    const char* _name;
+  };
+
   bool initWidthMmap(const Block* block);
   bool initWidthMdata(const Block* block);
+
+  bool initNes();
   bool initSnes();
+  bool initMasterSystem();
 
   libretro::Core*     _core;
   bool                _opened;

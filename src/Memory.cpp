@@ -4,17 +4,6 @@
 
 #include <stdint.h>
 
-enum
-{
-  kSnes9x        = 0xd17b0bafU, // Snes9x
-  kSnes9x2005    = 0x39affeb6U, // Snes9x 2005
-  kSnes9x2010    = 0x39affed2U, // Snes9x 2010
-  kBsnes         = 0x0f2d5280U, // bsnes
-  kBSNES         = 0x0f1b3a00U, // bSNES
-  kBsnesMercury  = 0x48965794U, // bsnes-mercury
-  kMednafenBSNES = 0x28f2d47eU, // Mednafen bSNES
-};
-
 static uint32_t djb2(const char* str)
 {
   uint32_t hash = 5381;                
@@ -36,16 +25,28 @@ bool Memory::init(libretro::Core* core)
 
   switch (djb2(info->library_name))
   {
-  case kSnes9x:
-  case kSnes9x2005:
-  case kSnes9x2010:
-  case kBsnes:
-  case kBSNES:
-  case kBsnesMercury:
-  case kMednafenBSNES: return initSnes();
+  case 0x7c94ae0dU: // bnes
+  case 0xc3eefa9bU: // emux (nes)
+  case 0xb00bd8c2U: // FCEUmm
+  case 0xeb2f41e8U: // Nestopia
+  case 0x670e8ee8U: // QuickNES - this is the only core that implements one of the required interfaces
+    return initNes();
 
-  default: return false;
+  case 0x0f2d5280U: // bsnes
+  case 0x0f1b3a00U: // bSNES
+  case 0x48965794U: // bsnes-mercury
+  case 0xd17b0bafU: // Snes9x
+  case 0x39affeb6U: // Snes9x 2005
+  case 0x39affed2U: // Snes9x 2010
+  case 0x28f2d47eU: // Mednafen bSNES
+    return initSnes();
+  
+  case 0x2ce692d6U: // Genesis Plus GX
+  case 0x0cc11b6aU: // PicoDrive
+    return initMasterSystem();
   }
+
+  return false;
 }
 
 void Memory::destroy()
@@ -140,32 +141,63 @@ bool Memory::initWidthMdata(const Block* block)
   return true;
 }
 
-/*
-[DEBUG] retro_memory_map
-[DEBUG]   ndx flags  ptr              offset   start    select   disconn  len      addrspace
-[DEBUG]     1 M1A1bc 0000000048ecef70 00000000 007E0000 00FE0000 00000000 00020000 
-[DEBUG]     2 M1A1bc 0000000048f29fd0 00000000 00700000 00708000 00000000 00000800 
-[DEBUG]     3 M1A1bC 00000000494dc040 00000000 00C00000 00C00000 00008000 00080000 
-[DEBUG]     4 M1A1bC 00000000494dc040 00000000 00808000 00C08000 00008000 00080000 
-[DEBUG]     5 M1A1bC 00000000494dc040 00000000 00400000 00C00000 00008000 00080000 
-[DEBUG]     6 M1A1bC 00000000494dc040 00000000 00008000 00C08000 00008000 00080000 
-[DEBUG]     7 M1A1bc 0000000048ecef70 00000000 00000000 0040E000 00000000 00002000 
-*/
-static const Memory::Block s_snesBlocks[] =
+bool Memory::initNes()
 {
-  {RETRO_MEMORY_SYSTEM_RAM, 0x000000, "Work RAM"},
-  {RETRO_MEMORY_SAVE_RAM,   0x700000, "Save RAM"},
-  {0,                       0x000000, NULL}
-};
+  static const Block blocks[] =
+  {
+    {RETRO_MEMORY_SYSTEM_RAM, 0x0000, "Work RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0x6000, "Save RAM"},
+    {0,                       0x0000, NULL}
+  };
+
+  _platform = Platform::kNes;
+
+  bool ok = initWidthMmap(blocks);
+  ok = ok || initWidthMdata(blocks);
+
+  return ok;
+}
 
 bool Memory::initSnes()
 {
+  static const Block blocks[] =
+  {
+    {RETRO_MEMORY_SYSTEM_RAM, 0x000000, "Work RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0x700000, "Save RAM"},
+    {0,                       0x000000, NULL}
+  };
+
   _platform = Platform::kSnes;
 
-  // Snes9x
-  bool ok = initWidthMmap(s_snesBlocks);
-  // Snes9x 2010
-  ok = ok || initWidthMdata(s_snesBlocks);
+  bool ok = initWidthMmap(blocks);
+  ok = ok || initWidthMdata(blocks);
+
+  return ok;
+}
+
+bool Memory::initMasterSystem()
+{
+  static const Block blocks[] =
+  {
+    //{RETRO_MEMORY_SYSTEM_RAM, 0xc000, "Work RAM"},
+    {RETRO_MEMORY_SYSTEM_RAM, 0x0000, "Work RAM"},
+    {0,                       0x000000, NULL}
+  };
+
+  _platform = Platform::kMasterSystem;
+
+  bool ok = initWidthMmap(blocks);
+  ok = ok || initWidthMdata(blocks);
+
+  for (auto it = _regions.begin(); it != _regions.end(); ++it)
+  {
+    if (it->_baseAddr == 0xc000)
+    {
+      // Remove mirror from system RAM
+      //it->_size = 8192;
+      break;
+    }
+  }
 
   return ok;
 }
