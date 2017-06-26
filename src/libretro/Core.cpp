@@ -1134,7 +1134,7 @@ bool libretro::Core::setMemoryMaps(const struct retro_memory_map* data)
 
   const struct retro_memory_descriptor* end = descriptors + _memoryMap.num_descriptors;
 
-  for (; descriptors < end; descriptors++)
+  for (unsigned i = 1; descriptors < end; i++, descriptors++)
   {
     char flags[7];
 
@@ -1180,7 +1180,7 @@ bool libretro::Core::setMemoryMaps(const struct retro_memory_map* data)
     flags[5] = (descriptors->flags & RETRO_MEMDESC_CONST) ? 'C' : 'c';
     flags[6] = 0;
 
-    debug("  %3u %s %p %08X %08X %08X %08X %08X %s", descriptors - descriptors + 1, flags, descriptors->ptr, descriptors->offset, descriptors->start, descriptors->select, descriptors->disconnect, descriptors->len, descriptors->addrspace ? descriptors->addrspace : "");
+    debug("  %3u %s %p %08X %08X %08X %08X %08X %s", i, flags, descriptors->ptr, descriptors->offset, descriptors->start, descriptors->select, descriptors->disconnect, descriptors->len, descriptors->addrspace ? descriptors->addrspace : "");
   }
 
   return true;
