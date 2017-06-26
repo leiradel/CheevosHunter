@@ -18,6 +18,13 @@ public:
     kSnes,
   };
 
+  struct Block
+  {
+    unsigned    _id;
+    size_t      _start;
+    const char* _name;
+  };
+
   bool init(libretro::Core* core);
   void destroy();
   void draw();
@@ -34,8 +41,9 @@ protected:
     MemoryEditor _editor;
   };
 
-  bool findMemory(Region* region, size_t start);
-  bool initSnes9x();
+  bool initWidthMmap(const Block* block);
+  bool initWidthMdata(const Block* block);
+  bool initSnes();
 
   libretro::Core*     _core;
   bool                _opened;
