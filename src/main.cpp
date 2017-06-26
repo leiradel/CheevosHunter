@@ -603,13 +603,13 @@ public:
           ImGui::Columns(1);
           ImGui::Separator();
 
-          ImGui::Indent();
-
           const struct retro_subsystem_rom_info* rom = info->roms;
           const struct retro_subsystem_rom_info* end = rom + info->num_roms;
 
           for (unsigned i = 0; rom < end; i++, rom++)
           {
+            ImGui::Indent();
+
             char title[64];
             snprintf(title, sizeof(title), "retro_subsystem_rom_info[%u]", i);
 
@@ -877,7 +877,7 @@ int main(int, char**)
 {
   Application app;
 
-  if (!app.init("Cheevos Explorer", 1024, 640))
+  if (!app.init("Cheevos Hunter", 1024, 640))
   {
     return 1;
   }
