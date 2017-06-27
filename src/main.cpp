@@ -1,14 +1,14 @@
 #include "ImguiLibretro.h"
 #include "Memory.h"
 
-#include "imgui/imgui_impl_sdl.h"
+#include <imgui.h>
+#include <imgui_impl_sdl.h>
+#include <SDL.h>
+#include <SDL_opengl.h>
+
 #include "imguiext/imguial_button.h"
 #include "imguiext/imguial_fonts.h"
 #include "imguiext/imguifilesystem.h"
-
-#include <imgui.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
 
 static const char* s_gameControllerDB[] =
 {
