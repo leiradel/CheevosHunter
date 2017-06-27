@@ -10,6 +10,8 @@
 #include "imguiext/imguial_fonts.h"
 #include "imguiext/imguifilesystem.h"
 
+#include "imguiext/imguidock.h"
+
 static const char* s_gameControllerDB[] =
 {
   // Updated on 2017-06-15
@@ -213,11 +215,14 @@ public:
     }
 
     _state = State::kGetCorePath;
+    ImGui::LoadDock("imguidock.ini");
     return true;
   }
 
   void destroy()
   {
+    ImGui::SaveDock("imguidock.ini");
+
     _input.destroy();
     _audio.destroy();
     _video.destroy();
@@ -321,58 +326,52 @@ public:
     ImGui::Separator();
   }
 
-  void draw()
+  void drawCoreControls()
   {
-    bool loadCorePressed, loadGamePressed;
+    ImVec2 size = ImVec2(100.0f, 0.0f);
 
-    // Draw the core lifecycle controls
-    if (ImGui::Begin(ICON_FA_COG " Core"))
+    bool loadCorePressed = ImGuiAl::Button(ICON_FA_COG " Load core...", _state == State::kGetCorePath, size);
+    ImGui::SameLine();
+
+    bool loadGamePressed = ImGuiAl::Button(ICON_FA_ROCKET " Load game...", _state == State::kGetGamePath, size);
+    ImGui::SameLine();
+
+    bool pressed = ImGuiAl::Button(ICON_FA_PLAY " Run", _state == State::kPaused, size);
+    ImGui::SameLine();
+
+    if (pressed)
     {
-      ImVec2 size = ImVec2(100.0f, 0.0f);
+      _logger.printf(RETRO_LOG_DEBUG, "Running");
+      _state = State::kRunning;
+    }
 
-      loadCorePressed = ImGuiAl::Button(ICON_FA_COG " Load core...", _state == State::kGetCorePath, size);
-      ImGui::SameLine();
+    pressed = ImGuiAl::Button(ICON_FA_PAUSE " Pause", _state == State::kRunning, size);
+    ImGui::SameLine();
 
-      loadGamePressed = ImGuiAl::Button(ICON_FA_ROCKET " Load game...", _state == State::kGetGamePath, size);
-      ImGui::SameLine();
+    if (pressed)
+    {
+      _logger.printf(RETRO_LOG_DEBUG, "Paused");
+      _state = State::kPaused;
+    }
 
-      bool pressed = ImGuiAl::Button(ICON_FA_PLAY " Run", _state == State::kPaused, size);
-      ImGui::SameLine();
+    pressed = ImGuiAl::Button(ICON_FA_STOP " Stop", _state == State::kPaused, size);
 
-      if (pressed)
-      {
-        _logger.printf(RETRO_LOG_DEBUG, "Running");
-        _state = State::kRunning;
-      }
+    if (pressed)
+    {
+      _logger.printf(RETRO_LOG_DEBUG, "Stopped");
 
-      pressed = ImGuiAl::Button(ICON_FA_PAUSE " Pause", _state == State::kRunning, size);
-      ImGui::SameLine();
+      _fifo.reset();
+      _config.reset();
+      _video.reset();
+      _audio.reset();
+      _input.reset();
+      _loader.reset();
+      _allocator.reset();
+      _extensions.clear();
+      _memory.destroy();
+      _core.destroy();
 
-      if (pressed)
-      {
-        _logger.printf(RETRO_LOG_DEBUG, "Paused");
-        _state = State::kPaused;
-      }
-
-      pressed = ImGuiAl::Button(ICON_FA_STOP " Stop", _state == State::kPaused, size);
-
-      if (pressed)
-      {
-        _logger.printf(RETRO_LOG_DEBUG, "Stopped");
-
-        _fifo.reset();
-        _config.reset();
-        _video.reset();
-        _audio.reset();
-        _input.reset();
-        _loader.reset();
-        _allocator.reset();
-        _extensions.clear();
-        _memory.destroy();
-        _core.destroy();
-
-        _state = State::kGetCorePath;
-      }
+      _state = State::kGetCorePath;
     }
 
     if (_state == State::kPaused || _state == State::kRunning)
@@ -774,8 +773,6 @@ public:
       }
     }
 
-    ImGui::End();
-
     // Show the file open dialogs
     {
       static ImGuiFs::Dialog coreDialog;
@@ -859,17 +856,55 @@ public:
         }
       }
     }
+  }
 
-    _logger.draw();
-    _config.draw();
-    _video.draw();
-    _audio.draw();
-    _input.draw();
+  void draw()
+  {
+    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
 
-    if (_state == State::kPaused || _state == State::kRunning)
+    const float oldWindowRounding = ImGui::GetStyle().WindowRounding;
+    ImGui::GetStyle().WindowRounding = 0;
+    const bool visible = ImGui::Begin("Docking Manager", NULL, ImVec2(0, 0), 1.0f, flags);
+    ImGui::GetStyle().WindowRounding = oldWindowRounding;
+
+    if (visible)
     {
-      _memory.draw();
+      ImGui::BeginDockspace();
+
+      if (ImGui::BeginDock(ICON_FA_COG " Core"))
+        drawCoreControls();
+      ImGui::EndDock();
+
+      if (ImGui::BeginDock(ICON_FA_COMMENT " Log"))
+        _logger.draw();
+      ImGui::EndDock();
+      
+      if (ImGui::BeginDock(ICON_FA_WRENCH " Configuration"))
+        _config.draw();
+      ImGui::EndDock();
+      
+      if (ImGui::BeginDock(ICON_FA_DESKTOP " Video"))
+        _video.draw();
+      ImGui::EndDock();
+      
+      if (ImGui::BeginDock(ICON_FA_VOLUME_UP " Audio"))
+        _audio.draw();
+      ImGui::EndDock();
+      
+      if (ImGui::BeginDock(ICON_FA_GAMEPAD " Input"))
+        _input.draw();
+      ImGui::EndDock();
+
+      if (_state == State::kPaused || _state == State::kRunning)
+      {
+        _memory.draw();
+      }
+      
+      ImGui::EndDockspace();
     }
+
+    ImGui::End();
   }
 };
 

@@ -36,7 +36,7 @@ struct MemoryEditor
 
     void Draw(const char* title, unsigned char* mem_data, int mem_size, size_t base_display_addr = 0)
     {
-        if (ImGui::Begin(title, &Open))
+        //if (ImGui::Begin(title, &Open))
         {
             ImGui::BeginChild("##scrolling", ImVec2(0, -ImGui::GetItemsLineHeightWithSpacing()));
 
@@ -208,6 +208,6 @@ struct MemoryEditor
             }
             ImGui::PopItemWidth();
         }
-        ImGui::End();
+        //ImGui::End();
     }
 };

@@ -1,6 +1,7 @@
 #include "Memory.h"
 
 #include "imguiext/imguial_fonts.h"
+#include "imguiext/imguidock.h"
 
 #include <stdint.h>
 
@@ -30,7 +31,9 @@ void Memory::draw()
   {
     Region* region = &it->second;
 
-    region->_editor.Draw(region->_description.c_str(), (unsigned char*)region->_contents, region->_size, region->_baseAddr);
+    if (ImGui::BeginDock(region->_description.c_str()))
+      region->_editor.Draw(region->_description.c_str(), (unsigned char*)region->_contents, region->_size, region->_baseAddr);
+    ImGui::EndDock();
   }
 }
 

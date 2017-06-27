@@ -152,51 +152,46 @@ void Logger::reset()
 
 void Logger::draw()
 {
-  if (ImGui::Begin(ICON_FA_COMMENT " Log"))
+  switch (_logger.Draw())
   {
-    switch (_logger.Draw())
+  case 1:
     {
-    case 1:
+      struct Iterator
       {
-        struct Iterator
+        static bool func(ImGuiAl::Log::Level level, const char* line, void* ud)
         {
-          static bool func(ImGuiAl::Log::Level level, const char* line, void* ud)
+          std::string* buffer = (std::string*)ud;
+
+          switch (level)
           {
-            std::string* buffer = (std::string*)ud;
-
-            switch (level)
-            {
-              case ImGuiAl::Log::kDebug: *buffer += "[DEBUG] "; break;
-              case ImGuiAl::Log::kInfo:  *buffer += "[INFO ] "; break;
-              case ImGuiAl::Log::kWarn:  *buffer += "[WARN ] "; break;
-              case ImGuiAl::Log::kError: *buffer += "[ERROR] "; break;
-            }
-
-            *buffer += line;
-            *buffer += '\n';
-
-            return true;
+            case ImGuiAl::Log::kDebug: *buffer += "[DEBUG] "; break;
+            case ImGuiAl::Log::kInfo:  *buffer += "[INFO ] "; break;
+            case ImGuiAl::Log::kWarn:  *buffer += "[WARN ] "; break;
+            case ImGuiAl::Log::kError: *buffer += "[ERROR] "; break;
           }
-        };
 
-        std::string buffer;
-        _logger.Iterate(Iterator::func, true, &buffer);
-        ImGui::SetClipboardText(buffer.c_str());
-      }
-      break;
+          *buffer += line;
+          *buffer += '\n';
 
-    case 2:
-      _clear.Open();
-      break;
+          return true;
+        }
+      };
+
+      std::string buffer;
+      _logger.Iterate(Iterator::func, true, &buffer);
+      ImGui::SetClipboardText(buffer.c_str());
     }
+    break;
+
+  case 2:
+    _clear.Open();
+    break;
   }
 
-  ImGui::End();
-
-  if (_clear.Draw() == 1)
-  {
-    _logger.Clear();
-  }
+  //if (_clear.Draw() == 1)
+  //{
+  //  _logger.Clear();
+  //}
 }
 
 void Logger::vprintf(enum retro_log_level level, const char* fmt, va_list args)
@@ -268,35 +263,30 @@ void Config::reset()
 
 void Config::draw()
 {
-  if (ImGui::Begin(ICON_FA_WRENCH " Configuration", &_opened))
+  for (auto it = _variables.begin(); it != _variables.end(); ++it)
   {
-    for (auto it = _variables.begin(); it != _variables.end(); ++it)
+    Variable& var = *it;
+
+    struct Getter
     {
-      Variable& var = *it;
-
-      struct Getter
+      static bool get(void* data, int idx, const char** out_text)
       {
-        static bool get(void* data, int idx, const char** out_text)
+        const Variable* var = (Variable*)data;
+
+        if ((size_t)idx < var->_options.size())
         {
-          const Variable* var = (Variable*)data;
-
-          if ((size_t)idx < var->_options.size())
-          {
-            *out_text = var->_options[idx].c_str();
-            return true;
-          }
-
-          return false;
+          *out_text = var->_options[idx].c_str();
+          return true;
         }
-      };
 
-      int old = var._selected;
-      ImGui::Combo(var._name.c_str(), &var._selected, Getter::get, (void*)&var, var._options.size());
-      _updated = _updated || old != var._selected;
-    }
+        return false;
+      }
+    };
+
+    int old = var._selected;
+    ImGui::Combo(var._name.c_str(), &var._selected, Getter::get, (void*)&var, var._options.size());
+    _updated = _updated || old != var._selected;
   }
-
-  ImGui::End();
 }
 
 const char* Config::getCoreAssetsDirectory()
@@ -398,35 +388,30 @@ void Video::reset()
 
 void Video::draw()
 {
-  if (ImGui::Begin(ICON_FA_DESKTOP " Video", &_opened))
+  if (_texture != 0)
   {
-    if (_texture != 0)
+    ImVec2 min = ImGui::GetWindowContentRegionMin();
+    ImVec2 max = ImGui::GetWindowContentRegionMax();
+
+    float height = max.y - min.y;
+    float width = height * _aspect;
+
+    if (width > max.x - min.x)
     {
-      ImVec2 min = ImGui::GetWindowContentRegionMin();
-      ImVec2 max = ImGui::GetWindowContentRegionMax();
-
-      float height = max.y - min.y;
-      float width = height * _aspect;
-
-      if (width > max.x - min.x)
-      {
-        width = max.x - min.x;
-        height = width / _aspect;
-      }
-
-      ImVec2 size = ImVec2(width, height);
-      ImVec2 uv0 = ImVec2(0.0f, 0.0f);
-
-      ImVec2 uv1 = ImVec2(
-        (float)_width / _textureWidth,
-        (float)_height / _textureHeight
-      );
-
-      ImGui::Image((ImTextureID)(uintptr_t)_texture, size, uv0, uv1);
+      width = max.x - min.x;
+      height = width / _aspect;
     }
-  }
 
-  ImGui::End();
+    ImVec2 size = ImVec2(width, height);
+    ImVec2 uv0 = ImVec2(0.0f, 0.0f);
+
+    ImVec2 uv1 = ImVec2(
+      (float)_width / _textureWidth,
+      (float)_height / _textureHeight
+    );
+
+    ImGui::Image((ImTextureID)(uintptr_t)_texture, size, uv0, uv1);
+  }
 }
 
 bool Video::setGeometry(unsigned width, unsigned height, float aspect, enum retro_pixel_format pixelFormat, bool needsHardwareRender)
@@ -610,59 +595,54 @@ void Audio::reset()
 
 void Audio::draw()
 {
-  if (ImGui::Begin(ICON_FA_VOLUME_UP " Audio", &_opened))
+  ImGui::Checkbox("Mute", &_mute);
+
+  struct Getter
   {
-    ImGui::Checkbox("Mute", &_mute);
-
-    struct Getter
+    static float left(void* data, int idx)
     {
-      static float left(void* data, int idx)
-      {
-        Audio* self = (Audio*)data;
-        return self->_samples[idx * 2] * self->_scale;
-      }
-
-      static float right(void* data, int idx)
-      {
-        Audio* self = (Audio*)data;
-        return self->_samples[idx * 2 + 1] * self->_scale;
-      }
-
-      static float zero(void* data, int idx)
-      {
-        return 0.0f;
-      }
-    };
-
-    ImVec2 max = ImGui::GetContentRegionAvail();
-    max.y -= ImGui::GetItemsLineHeightWithSpacing();
-
-    if (max.y > 0.0f)
-    {
-      max.x /= 2;
-
-      if (_samples != NULL)
-      {
-        ImGui::PlotLines("", Getter::left, this, _frames, 0, NULL, -32768.0f, 32767.0f, max);
-        ImGui::SameLine(0.0f, 0.0f);
-        ImGui::PlotLines("", Getter::right, this, _frames, 0, NULL, -32768.0f, 32767.0f, max);
-      }
-      else
-      {
-        ImGui::PlotLines("", Getter::zero, NULL, 2, 0, NULL, -32768.0f, 32767.0f, max);
-        ImGui::SameLine( 0.0f, 0.0f );
-        ImGui::PlotLines("", Getter::zero, NULL, 2, 0, NULL, -32768.0f, 32767.0f, max);
-      }
+      Audio* self = (Audio*)data;
+      return self->_samples[idx * 2] * self->_scale;
     }
 
-    ImGui::PushItemWidth(-1.0f);
-    ImGui::SliderFloat("##empty", &_scale, 1.0f, 3.0f, "Scale = %.3f");
-    ImGui::PopItemWidth();
+    static float right(void* data, int idx)
+    {
+      Audio* self = (Audio*)data;
+      return self->_samples[idx * 2 + 1] * self->_scale;
+    }
 
-    _samples = NULL;
+    static float zero(void* data, int idx)
+    {
+      return 0.0f;
+    }
+  };
+
+  ImVec2 max = ImGui::GetContentRegionAvail();
+  max.y -= ImGui::GetItemsLineHeightWithSpacing();
+
+  if (max.y > 0.0f)
+  {
+    max.x /= 2;
+
+    if (_samples != NULL)
+    {
+      ImGui::PlotLines("", Getter::left, this, _frames, 0, NULL, -32768.0f, 32767.0f, max);
+      ImGui::SameLine(0.0f, 0.0f);
+      ImGui::PlotLines("", Getter::right, this, _frames, 0, NULL, -32768.0f, 32767.0f, max);
+    }
+    else
+    {
+      ImGui::PlotLines("", Getter::zero, NULL, 2, 0, NULL, -32768.0f, 32767.0f, max);
+      ImGui::SameLine( 0.0f, 0.0f );
+      ImGui::PlotLines("", Getter::zero, NULL, 2, 0, NULL, -32768.0f, 32767.0f, max);
+    }
   }
 
-  ImGui::End();
+  ImGui::PushItemWidth(-1.0f);
+  ImGui::SliderFloat("##empty", &_scale, 1.0f, 3.0f, "Scale = %.3f");
+  ImGui::PopItemWidth();
+
+  _samples = NULL;
 }
 
 bool Audio::setRate(double rate)
@@ -790,185 +770,180 @@ void Input::reset()
 
 void Input::draw()
 {
-  if (ImGui::Begin(ICON_FA_GAMEPAD " Input", &_opened))
+  unsigned count = 1;
+
+  for (auto it = _pads.begin(); it != _pads.end(); ++it, count++)
   {
-    unsigned count = 1;
+    Pad* pad = &it->second;
 
-    for (auto it = _pads.begin(); it != _pads.end(); ++it, count++)
+    char label[512];
+    snprintf(label, sizeof(label), "%s (%u)", pad->_controllerName, count);
+
+    if (ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen))
     {
-      Pad* pad = &it->second;
+      char id[32];
+      snprintf(id, sizeof(id), "%p", pad);
+      ImGui::Columns(2, id);
 
-      char label[512];
-      snprintf(label, sizeof(label), "%s (%u)", pad->_controllerName, count);
-
-      if (ImGui::CollapsingHeader(label, ImGuiTreeNodeFlags_DefaultOpen))
       {
-        char id[32];
-        snprintf(id, sizeof(id), "%p", pad);
-        ImGui::Columns(2, id);
+        ImVec2 pos = ImGui::GetCursorPos();
+        drawPad(17);
 
+        for (unsigned button = 0; button < 16; button++)
         {
-          ImVec2 pos = ImGui::GetCursorPos();
-          drawPad(17);
-
-          for (unsigned button = 0; button < 16; button++)
+          if (pad->_state[button])
           {
-            if (pad->_state[button])
-            {
-              ImGui::SetCursorPos(pos);
-              drawPad(button);
-            }
+            ImGui::SetCursorPos(pos);
+            drawPad(button);
           }
         }
-
-        ImGui::NextColumn();
-
-        {
-          char labels[512];
-          char* aux = labels;
-          unsigned i = 1;
-
-          aux += snprintf(aux, sizeof(labels) - (aux - labels), "Disconnected") + 1;
-
-          if (_controllers.size() != 0)
-          {
-            for (auto it = _controllers.begin(); it != _controllers.end(); ++it, i++)
-            {
-              Controller* ctrl = &*it;
-              
-              for (auto it2 = ctrl->_types.begin(); it2 != ctrl->_types.end(); ++it2)
-              {
-                ControllerType* type = &*it2;
-
-                if ((type->_id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
-                {
-                  aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connected to port %u", i) + 1;
-                  break;
-                }
-              }
-            }
-          }
-          else
-          {
-            // No ports were specified, use the input descriptors to see how many ports we have
-            uint64_t ports = 0;
-
-            for (auto it = _descriptors.begin(); it != _descriptors.end(); ++it)
-            {
-              Descriptor* desc = &*it;
-
-              if (desc->_port < 64)
-              {
-                ports |= 1 << desc->_port;
-              }
-            }
-
-            for (unsigned i = 0; i < 64; i++)
-            {
-              if (ports & (1ULL << i))
-              {
-                aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connect to port %u", i + 1) + 1;
-              }
-            }
-          }
-
-          *aux = 0;
-
-          ImGui::PushItemWidth(-1.0f);
-
-          char label[64];
-          snprintf(label, sizeof(label), "##port%p", pad);
-
-          ImGui::Combo(label, &pad->_port, labels);
-          ImGui::PopItemWidth();
-        }
-
-        {
-          char labels[512];
-          unsigned ids[32];
-          char* aux = labels;
-          int count = 0;
-          int selected = 0;
-
-          aux += snprintf(aux, sizeof(labels) - (aux - labels), "None") + 1;
-          ids[count++] = RETRO_DEVICE_NONE;
-
-          if (_controllers.size() != 0)
-          {
-            if (pad->_port > 0 && (size_t)pad->_port <= _controllers.size())
-            {
-              Controller* ctrl = &_controllers[pad->_port - 1];
-
-              for (auto it = ctrl->_types.begin(); it != ctrl->_types.end(); ++it)
-              {
-                ControllerType* type = &*it;
-
-                if ((type->_id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
-                {
-                  if (type->_id == pad->_devId)
-                  {
-                    selected = count;
-                  }
-
-                  aux += snprintf(aux, sizeof(labels) - (aux - labels), "%s", type->_description.c_str()) + 1;
-                  ids[count++] = type->_id;
-                }
-              }
-            }
-          }
-          else
-          {
-            // No ports were specified, add the default RetroPad controller if the port is valid
-
-            if (pad->_port != 0)
-            {
-              aux += snprintf(aux, sizeof(labels) - (aux - labels), "RetroPad") + 1;
-
-              if (pad->_devId == RETRO_DEVICE_JOYPAD)
-              {
-                selected = 1;
-              }
-            }
-          }
-
-          *aux = 0;
-
-          ImGui::PushItemWidth(-1.0f);
-
-          char label[64];
-          snprintf(label, sizeof(label), "##device%p", pad);
-
-          int old = selected;
-          ImGui::Combo(label, &selected, labels);
-          _updated = _updated || old != selected;
-
-          if (_controllers.size() != 0)
-          {
-            pad->_devId = ids[selected];
-          }
-          else
-          {
-            pad->_devId = selected == 0 ? RETRO_DEVICE_NONE : RETRO_DEVICE_JOYPAD;
-          }
-
-          ImGui::PopItemWidth();
-        }
-
-        {
-          char label[64];
-          snprintf(label, sizeof(label), "##sensitivity%p", pad);
-
-          ImGui::PushItemWidth(-1.0f);
-          ImGui::SliderFloat(label, &pad->_sensitivity, 0.0f, 1.0f, "Sensitivity %.3f");
-          ImGui::PopItemWidth();
-        }
-
-        ImGui::Columns(1);
       }
+
+      ImGui::NextColumn();
+
+      {
+        char labels[512];
+        char* aux = labels;
+        unsigned i = 1;
+
+        aux += snprintf(aux, sizeof(labels) - (aux - labels), "Disconnected") + 1;
+
+        if (_controllers.size() != 0)
+        {
+          for (auto it = _controllers.begin(); it != _controllers.end(); ++it, i++)
+          {
+            Controller* ctrl = &*it;
+            
+            for (auto it2 = ctrl->_types.begin(); it2 != ctrl->_types.end(); ++it2)
+            {
+              ControllerType* type = &*it2;
+
+              if ((type->_id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
+              {
+                aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connected to port %u", i) + 1;
+                break;
+              }
+            }
+          }
+        }
+        else
+        {
+          // No ports were specified, use the input descriptors to see how many ports we have
+          uint64_t ports = 0;
+
+          for (auto it = _descriptors.begin(); it != _descriptors.end(); ++it)
+          {
+            Descriptor* desc = &*it;
+
+            if (desc->_port < 64)
+            {
+              ports |= 1 << desc->_port;
+            }
+          }
+
+          for (unsigned i = 0; i < 64; i++)
+          {
+            if (ports & (1ULL << i))
+            {
+              aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connect to port %u", i + 1) + 1;
+            }
+          }
+        }
+
+        *aux = 0;
+
+        ImGui::PushItemWidth(-1.0f);
+
+        char label[64];
+        snprintf(label, sizeof(label), "##port%p", pad);
+
+        ImGui::Combo(label, &pad->_port, labels);
+        ImGui::PopItemWidth();
+      }
+
+      {
+        char labels[512];
+        unsigned ids[32];
+        char* aux = labels;
+        int count = 0;
+        int selected = 0;
+
+        aux += snprintf(aux, sizeof(labels) - (aux - labels), "None") + 1;
+        ids[count++] = RETRO_DEVICE_NONE;
+
+        if (_controllers.size() != 0)
+        {
+          if (pad->_port > 0 && (size_t)pad->_port <= _controllers.size())
+          {
+            Controller* ctrl = &_controllers[pad->_port - 1];
+
+            for (auto it = ctrl->_types.begin(); it != ctrl->_types.end(); ++it)
+            {
+              ControllerType* type = &*it;
+
+              if ((type->_id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
+              {
+                if (type->_id == pad->_devId)
+                {
+                  selected = count;
+                }
+
+                aux += snprintf(aux, sizeof(labels) - (aux - labels), "%s", type->_description.c_str()) + 1;
+                ids[count++] = type->_id;
+              }
+            }
+          }
+        }
+        else
+        {
+          // No ports were specified, add the default RetroPad controller if the port is valid
+
+          if (pad->_port != 0)
+          {
+            aux += snprintf(aux, sizeof(labels) - (aux - labels), "RetroPad") + 1;
+
+            if (pad->_devId == RETRO_DEVICE_JOYPAD)
+            {
+              selected = 1;
+            }
+          }
+        }
+
+        *aux = 0;
+
+        ImGui::PushItemWidth(-1.0f);
+
+        char label[64];
+        snprintf(label, sizeof(label), "##device%p", pad);
+
+        int old = selected;
+        ImGui::Combo(label, &selected, labels);
+        _updated = _updated || old != selected;
+
+        if (_controllers.size() != 0)
+        {
+          pad->_devId = ids[selected];
+        }
+        else
+        {
+          pad->_devId = selected == 0 ? RETRO_DEVICE_NONE : RETRO_DEVICE_JOYPAD;
+        }
+
+        ImGui::PopItemWidth();
+      }
+
+      {
+        char label[64];
+        snprintf(label, sizeof(label), "##sensitivity%p", pad);
+
+        ImGui::PushItemWidth(-1.0f);
+        ImGui::SliderFloat(label, &pad->_sensitivity, 0.0f, 1.0f, "Sensitivity %.3f");
+        ImGui::PopItemWidth();
+      }
+
+      ImGui::Columns(1);
     }
   }
-
-  ImGui::End();
 }
 
 void Input::drawPad(unsigned button)

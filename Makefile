@@ -24,7 +24,7 @@ IMGUI_OBJS=src/imgui/imgui.o src/imgui/imgui_demo.o src/imgui/imgui_draw.o src/i
 IMGUI_LIBS=-lSDL2.dll -lOpenGL32
 
 # imgui extras
-IMGUIEXT_OBJS=src/imguiext/imguial_log.o src/imguiext/imguial_fonts.o src/imguiext/imguial_msgbox.o src/imguiext/imguifilesystem.o
+IMGUIEXT_OBJS=src/imguiext/imguial_log.o src/imguiext/imguial_fonts.o src/imguiext/imguial_msgbox.o src/imguiext/imguifilesystem.o src/imguiext/imguidock.o src/imguiext/imguihelper.o
 IMGUIEXT_LIBS=imgui$(SOEXT)
 
 %.o: %.cpp
