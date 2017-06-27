@@ -145,9 +145,8 @@ bool Memory::initSMS()
 {
   static const Block blocks[] =
   {
-    //{RETRO_MEMORY_SYSTEM_RAM, 0xc000, "Work RAM"},
-    {RETRO_MEMORY_SYSTEM_RAM, 0x0000, "Work RAM"},
-    {0,                       0x000000, NULL}
+    {RETRO_MEMORY_SYSTEM_RAM, 0xc000, "Work RAM"},
+    {0,                       0x0000, NULL}
   };
 
   bool ok = initWidthMmap(blocks);
@@ -157,8 +156,8 @@ bool Memory::initSMS()
   {
     if (it->_baseAddr == 0xc000)
     {
-      // Remove mirror from system RAM
-      //it->_size = 8192;
+      // Adjust Work RAM size because of the Genesis core
+      it->_size = 8192;
       break;
     }
   }
