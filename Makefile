@@ -16,7 +16,7 @@ CXXFLAGS=$(CCFLAGS) -std=c++11
 LDFLAGS=
 
 # ce
-LRCMDR_OBJS=src/main.o src/ImguiLibretro.o src/Memory.o src/libretro/BareCore.o src/libretro/Core.o src/dynlib/dynlib.o src/fnkdat/fnkdat.o src/speex/resample.o
+LRCMDR_OBJS=src/main.o src/ImguiLibretro.o src/Memory.o src/Platform.o src/libretro/BareCore.o src/libretro/Core.o src/dynlib/dynlib.o src/fnkdat/fnkdat.o src/speex/resample.o
 LRCMDR_LIBS=-lSDL2main imgui$(SOEXT) -lSDL2.dll -lOpenGL32
 
 # imgui

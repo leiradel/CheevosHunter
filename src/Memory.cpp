@@ -4,49 +4,19 @@
 
 #include <stdint.h>
 
-static uint32_t djb2(const char* str)
-{
-  uint32_t hash = 5381;                
-                                       
-  while (*str != 0)                       
-  {                                    
-    hash = hash * 33 + (uint8_t)*str++;
-  }                                    
-                                       
-  return hash;
-}
-
-bool Memory::init(libretro::Core* core)
+bool Memory::init(libretro::Core* core, Platform platform)
 {
   _core = core;
+  _platform = platform;
   _opened = true;
 
-  const struct retro_system_info* info = core->getSystemInfo();
-
-  switch (djb2(info->library_name))
+  switch (platform)
   {
-  case 0x7c94ae0dU: // bnes
-  case 0xc3eefa9bU: // emux (nes)
-  case 0xb00bd8c2U: // FCEUmm
-  case 0xeb2f41e8U: // Nestopia
-  case 0x670e8ee8U: // QuickNES - this is the only core that implements one of the required interfaces
-    return initNes();
-
-  case 0x0f2d5280U: // bsnes
-  case 0x0f1b3a00U: // bSNES
-  case 0x48965794U: // bsnes-mercury
-  case 0xd17b0bafU: // Snes9x
-  case 0x39affeb6U: // Snes9x 2005
-  case 0x39affed2U: // Snes9x 2010
-  case 0x28f2d47eU: // Mednafen bSNES
-    return initSnes();
-  
-  case 0x2ce692d6U: // Genesis Plus GX
-  case 0x0cc11b6aU: // PicoDrive
-    return initMasterSystem();
+  case Platform::kNES:  return initNES();
+  case Platform::kSNES: return initSNES();
+  case Platform::kSMS:  return initSMS();
+  default:              return false;
   }
-
-  return false;
 }
 
 void Memory::destroy()
@@ -141,7 +111,7 @@ bool Memory::initWidthMdata(const Block* block)
   return true;
 }
 
-bool Memory::initNes()
+bool Memory::initNES()
 {
   static const Block blocks[] =
   {
@@ -150,15 +120,13 @@ bool Memory::initNes()
     {0,                       0x0000, NULL}
   };
 
-  _platform = Platform::kNes;
-
   bool ok = initWidthMmap(blocks);
   ok = ok || initWidthMdata(blocks);
 
   return ok;
 }
 
-bool Memory::initSnes()
+bool Memory::initSNES()
 {
   static const Block blocks[] =
   {
@@ -167,15 +135,13 @@ bool Memory::initSnes()
     {0,                       0x000000, NULL}
   };
 
-  _platform = Platform::kSnes;
-
   bool ok = initWidthMmap(blocks);
   ok = ok || initWidthMdata(blocks);
 
   return ok;
 }
 
-bool Memory::initMasterSystem()
+bool Memory::initSMS()
 {
   static const Block blocks[] =
   {
@@ -183,8 +149,6 @@ bool Memory::initMasterSystem()
     {RETRO_MEMORY_SYSTEM_RAM, 0x0000, "Work RAM"},
     {0,                       0x000000, NULL}
   };
-
-  _platform = Platform::kMasterSystem;
 
   bool ok = initWidthMmap(blocks);
   ok = ok || initWidthMdata(blocks);

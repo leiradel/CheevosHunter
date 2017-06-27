@@ -841,7 +841,7 @@ public:
           ImGuiFs::PathGetDirectoryName(path, folder);
           _gameFolder = folder;
           
-          _memory.init(&_core);
+          _memory.init(&_core, identifyPlatform(&_core));
           _state = State::kRunning;
         }
         else

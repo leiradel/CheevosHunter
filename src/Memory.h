@@ -2,6 +2,7 @@
 
 #include "libretro/Core.h"
 
+#include "Platform.h"
 #include "imgui/imgui.h"
 
 #include <stdio.h>
@@ -13,18 +14,9 @@
 class Memory
 {
 public:
-  enum class Platform
-  {
-    kNes,
-    kSnes,
-    kMasterSystem,
-  };
-
-  bool init(libretro::Core* core);
+  bool init(libretro::Core* core, Platform platform);
   void destroy();
   void draw();
-
-  inline Platform getPlatform() const { return _platform; }
 
 protected:
   struct Region
@@ -46,9 +38,9 @@ protected:
   bool initWidthMmap(const Block* block);
   bool initWidthMdata(const Block* block);
 
-  bool initNes();
-  bool initSnes();
-  bool initMasterSystem();
+  bool initNES();
+  bool initSNES();
+  bool initSMS();
 
   libretro::Core*     _core;
   bool                _opened;
