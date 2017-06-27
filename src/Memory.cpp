@@ -28,7 +28,7 @@ void Memory::draw()
 {
   for (auto it = _regions.begin(); it != _regions.end(); ++it)
   {
-    Region* region = &*it;
+    Region* region = &it->second;
 
     region->_editor.Draw(region->_description.c_str(), (unsigned char*)region->_contents, region->_size, region->_baseAddr);
   }
@@ -43,7 +43,7 @@ bool Memory::initWidthMmap(const Block* block)
     return false;
   }
 
-  for (int i = 0; block->_name != NULL; i++, block++)
+  for (int i = 0; block->_description != NULL; i++, block++)
   {
     const struct retro_memory_descriptor* desc = mmap->descriptors;
     bool found = false;
@@ -67,7 +67,10 @@ bool Memory::initWidthMmap(const Block* block)
 
     region._description = ICON_FA_MICROCHIP;
     region._description.append(" ");
-    region._description.append(block->_name);
+    region._description.append(block->_description);
+    region._description.append(" (");
+    region._description.append(block->_identifier);
+    region._description.append(")");
 
     region._contents = desc->ptr;
     region._size     = desc->len;
@@ -75,7 +78,7 @@ bool Memory::initWidthMmap(const Block* block)
 
     region._editor.Open = false;
 
-    _regions.push_back(region);
+    _regions.insert(std::pair<std::string, Region>(block->_identifier, region));
   }
 
   return true;
@@ -83,9 +86,9 @@ bool Memory::initWidthMmap(const Block* block)
 
 bool Memory::initWidthMdata(const Block* block)
 {
-  for (int i = 0; block->_name != NULL; i++, block++)
+  for (int i = 0; block->_description != NULL; i++, block++)
   {
-    void* contents = _core->getMemoryData(block->_id);
+    void* contents = _core->getMemoryData(block->_memid);
 
     if (contents == NULL)
     {
@@ -97,15 +100,18 @@ bool Memory::initWidthMdata(const Block* block)
 
     region._description = ICON_FA_MICROCHIP;
     region._description.append(" ");
-    region._description.append(block->_name);
+    region._description.append(block->_description);
+    region._description.append(" (");
+    region._description.append(block->_identifier);
+    region._description.append(")");
 
     region._contents = contents;
-    region._size     = _core->getMemorySize(block->_id);
+    region._size     = _core->getMemorySize(block->_memid);
     region._baseAddr = block->_start;
 
     region._editor.Open = false;
 
-    _regions.push_back(region);
+    _regions.insert(std::pair<std::string, Region>(block->_identifier, region));
   }
 
   return true;
@@ -115,9 +121,9 @@ bool Memory::initNES()
 {
   static const Block blocks[] =
   {
-    {RETRO_MEMORY_SYSTEM_RAM, 0x0000, "Work RAM"},
-    {RETRO_MEMORY_SAVE_RAM,   0x6000, "Save RAM"},
-    {0,                       0x0000, NULL}
+    {RETRO_MEMORY_SYSTEM_RAM, 0x0000, "wram", "Work RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0x6000, "sram", "Save RAM"},
+    {0,                       0x0000, NULL,   NULL}
   };
 
   bool ok = initWidthMmap(blocks);
@@ -130,9 +136,9 @@ bool Memory::initSNES()
 {
   static const Block blocks[] =
   {
-    {RETRO_MEMORY_SYSTEM_RAM, 0x000000, "Work RAM"},
-    {RETRO_MEMORY_SAVE_RAM,   0x700000, "Save RAM"},
-    {0,                       0x000000, NULL}
+    {RETRO_MEMORY_SYSTEM_RAM, 0x000000, "wram", "Work RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0x700000, "sram", "Save RAM"},
+    {0,                       0x000000, NULL,   NULL}
   };
 
   bool ok = initWidthMmap(blocks);
@@ -145,8 +151,8 @@ bool Memory::initSMS()
 {
   static const Block blocks[] =
   {
-    {RETRO_MEMORY_SYSTEM_RAM, 0xc000, "Work RAM"},
-    {0,                       0x0000, NULL}
+    {RETRO_MEMORY_SYSTEM_RAM, 0xc000, "wram", "Work RAM"},
+    {0,                       0x0000, NULL,   NULL}
   };
 
   bool ok = initWidthMmap(blocks);
@@ -154,10 +160,10 @@ bool Memory::initSMS()
 
   for (auto it = _regions.begin(); it != _regions.end(); ++it)
   {
-    if (it->_baseAddr == 0xc000)
+    if (it->second._baseAddr == 0xc000)
     {
       // Adjust Work RAM size because of the Genesis core
-      it->_size = 8192;
+      it->second._size = 8192;
       break;
     }
   }

@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 #include <string>
-#include <vector>
+#include <map>
 
 #include "imguiext/imgui_memory_editor.h"
 
@@ -30,9 +30,10 @@ protected:
 
   struct Block
   {
-    unsigned    _id;
+    unsigned    _memid;
     size_t      _start;
-    const char* _name;
+    const char* _identifier;
+    const char* _description;
   };
 
   bool initWidthMmap(const Block* block);
@@ -42,8 +43,9 @@ protected:
   bool initSNES();
   bool initSMS();
 
-  libretro::Core*     _core;
-  bool                _opened;
-  std::vector<Region> _regions;
-  Platform            _platform;
+  libretro::Core* _core;
+  Platform        _platform;
+  bool            _opened;
+
+  std::map<std::string, Region> _regions;
 };
