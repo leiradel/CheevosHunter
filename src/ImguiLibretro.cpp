@@ -137,8 +137,7 @@ bool Logger::init()
   _logger.SetFilterHeaderLabel(ICON_FA_FILTER " Filters");
   _logger.SetFilterLabel(ICON_FA_SEARCH " Filter (inc,-exc)");
 
-  static const char* buttons[] = {"Yes", "No", NULL};
-  return _clear.Init("Clear Log?", ICON_MD_WARNING, "Do you want to clear the log history?", buttons, true);
+  return true;
 }
 
 void Logger::destroy()
@@ -184,14 +183,9 @@ void Logger::draw()
     break;
 
   case 2:
-    _clear.Open();
+    _logger.Clear();
     break;
   }
-
-  //if (_clear.Draw() == 1)
-  //{
-  //  _logger.Clear();
-  //}
 }
 
 void Logger::vprintf(enum retro_log_level level, const char* fmt, va_list args)

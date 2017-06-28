@@ -3,7 +3,6 @@
 #include "libretro/Core.h"
 
 #include "imguiext/imguial_log.h"
-#include "imguiext/imguial_msgbox.h"
 #include "speex/speex_resampler.h"
 
 #include <stdarg.h>
@@ -50,8 +49,7 @@ public:
   virtual void vprintf(enum retro_log_level level, const char* fmt, va_list args) override;
 
 protected:
-  ImGuiAl::Log    _logger;
-  ImGuiAl::MsgBox _clear;
+  ImGuiAl::Log _logger;
 };
 
 class Config: public libretro::ConfigComponent
