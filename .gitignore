@@ -2,6 +2,7 @@ etc/*
 .vscode/*
 imgui.ini
 imguidock.ini
+config.json
 *.o
 *.exe
 *.dll
