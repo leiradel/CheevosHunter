@@ -33,7 +33,8 @@ void Memory::draw(bool running)
       "Nintendo Entertainment System",
       "Super Nintendo Entertainment System",
       "Sega Master System",
-      "Sega Mega Drive"
+      "Sega Mega Drive",
+      "Game Boy"
     };
     
     int old = _platform;
@@ -60,6 +61,10 @@ void Memory::draw(bool running)
       
       case 4: // MD
         initMD();
+        break;
+      
+      case 5: // GB
+        initGB();
         break;
       }
     }
@@ -128,8 +133,7 @@ bool Memory::initWidthMmap(const Block* block)
 
     if (!found)
     {
-      _regions.clear();
-      return false;
+      continue;
     }
 
     Region region;
@@ -153,20 +157,24 @@ bool Memory::initWidthMdata(const Block* block)
 {
   for (int i = 0; block->_description != NULL; i++, block++)
   {
+    if (block->_memid == -1)
+    {
+      // Ignore this block
+      continue;
+    }
+
     void* contents = _core->getMemoryData(block->_memid);
 
     if (contents == NULL)
     {
-      _regions.clear();
-      return false;
+      continue;
     }
 
     size_t size = _core->getMemorySize(block->_memid);
 
     if (block->_size != 0 && size < block->_size)
     {
-      _regions.clear();
-      return false;
+      continue;
     }
 
     Region region;
@@ -188,7 +196,7 @@ bool Memory::initWidthMdata(const Block* block)
   return true;
 }
 
-bool Memory::initNES()
+void Memory::initNES()
 {
   static const Block blocks[] =
   {
@@ -197,13 +205,10 @@ bool Memory::initNES()
     {0}
   };
 
-  bool ok = initWidthMmap(blocks);
-  ok = ok || initWidthMdata(blocks);
-
-  return ok;
+  initWidthMmap(blocks) || initWidthMdata(blocks);
 }
 
-bool Memory::initSNES()
+void Memory::initSNES()
 {
   static const Block blocks[] =
   {
@@ -212,13 +217,10 @@ bool Memory::initSNES()
     {0}
   };
 
-  bool ok = initWidthMmap(blocks);
-  ok = ok || initWidthMdata(blocks);
-
-  return ok;
+  initWidthMmap(blocks) || initWidthMdata(blocks);
 }
 
-bool Memory::initSMS()
+void Memory::initSMS()
 {
   static const Block blocks[] =
   {
@@ -226,8 +228,7 @@ bool Memory::initSMS()
     {0}
   };
 
-  bool ok = initWidthMmap(blocks);
-  ok = ok || initWidthMdata(blocks);
+  initWidthMmap(blocks) || initWidthMdata(blocks);
 
   for (auto it = _regions.begin(); it != _regions.end(); ++it)
   {
@@ -238,11 +239,9 @@ bool Memory::initSMS()
       break;
     }
   }
-
-  return ok;
 }
 
-bool Memory::initMD()
+void Memory::initMD()
 {
   static const Block blocks[] =
   {
@@ -250,8 +249,19 @@ bool Memory::initMD()
     {0}
   };
 
-  bool ok = initWidthMmap(blocks);
-  ok = ok || initWidthMdata(blocks);
+  initWidthMmap(blocks) || initWidthMdata(blocks);
+}
 
-  return ok;
+void Memory::initGB()
+{
+  static const Block blocks[] =
+  {
+    {RETRO_MEMORY_SYSTEM_RAM, 0xc000, 4 * 1024, "wram0", "Work RAM Bank 0"},
+    {-1,                      0xd000, 4 * 1024, "wram1", "Work RAM Bank 1"},
+    {-1,                      0xff80,      127, "zero",  "High RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0xa000,        0, "sram",  "Save RAM"},
+    {0}
+  };
+
+  initWidthMmap(blocks) || initWidthMdata(blocks);
 }

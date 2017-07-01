@@ -28,7 +28,7 @@ protected:
 
   struct Block
   {
-    unsigned    _memid;
+    int         _memid;
     size_t      _start;
     size_t      _size;
     const char* _identifier;
@@ -38,10 +38,11 @@ protected:
   bool initWidthMmap(const Block* block);
   bool initWidthMdata(const Block* block);
 
-  bool initNES();
-  bool initSNES();
-  bool initSMS();
-  bool initMD();
+  void initNES();
+  void initSNES();
+  void initSMS();
+  void initMD();
+  void initGB();
 
   libretro::Core* _core;
   int             _region;
