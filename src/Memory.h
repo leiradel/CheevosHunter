@@ -2,21 +2,20 @@
 
 #include "libretro/Core.h"
 
-#include "Platform.h"
 #include "imgui/imgui.h"
 
 #include <stdio.h>
 #include <string>
-#include <map>
-
-#include "imguiext/imgui_memory_editor.h"
+#include <vector>
 
 class Memory
 {
 public:
-  bool init(libretro::Core* core, Platform platform);
+  bool init(libretro::Core* core);
   void destroy();
-  void draw();
+  void draw(bool running);
+
+  void reset();
 
 protected:
   struct Region
@@ -25,13 +24,13 @@ protected:
     void*        _contents;
     size_t       _size;
     size_t       _baseAddr;
-    MemoryEditor _editor;
   };
 
   struct Block
   {
     unsigned    _memid;
     size_t      _start;
+    size_t      _size;
     const char* _identifier;
     const char* _description;
   };
@@ -42,10 +41,11 @@ protected:
   bool initNES();
   bool initSNES();
   bool initSMS();
+  bool initMD();
 
   libretro::Core* _core;
-  Platform        _platform;
-  bool            _opened;
+  int             _region;
+  int             _platform;
 
-  std::map<std::string, Region> _regions;
+  std::vector<Region> _regions;
 };

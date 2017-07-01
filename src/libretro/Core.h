@@ -105,6 +105,7 @@ namespace libretro
     // Initialization
     bool initCore();
     bool initAV();
+    void reset();
     
     // Logging functions
     void log(enum retro_log_level level, const char*, va_list) const;

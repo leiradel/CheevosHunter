@@ -266,35 +266,7 @@ bool libretro::Core::init(const Components* components)
     if (components->_allocator != NULL) _allocator = components->_allocator;
   }
 
-  _gameLoaded = false;
-  
-  _samples = NULL;
-  _samplesCount = 0;
-
-  _libretroPath = NULL;
-  _performanceLevel = 0;
-  _pixelFormat = RETRO_PIXEL_FORMAT_UNKNOWN;
-  _supportsNoGame = false;
-  _rotation = 0;
-  _supportAchievements = false;
-  
-  _inputDescriptorsCount = 0;
-  _inputDescriptors = NULL;
-  
-  _variablesCount = 0;
-  _variables = NULL;
-  
-  _needsHardwareRender = false;
-  
-  _subsystemInfoCount = 0;
-  _subsystemInfo = NULL;
-  
-  _controllerInfoCount = 0;
-  _controllerInfo = NULL;
-  _ports = NULL;
-  
-  _memoryMap.num_descriptors = 0;
-
+  reset();
   return true;
 }
 
@@ -403,6 +375,7 @@ bool libretro::Core::loadGame(const char* game_path)
 error:
   _core.deinit();
   _core.destroy();
+  reset();
   return false;
 }
 
@@ -417,6 +390,7 @@ void libretro::Core::destroy()
 
   _core.deinit();
   _core.destroy();
+  reset();
 }
 
 void libretro::Core::step()
@@ -523,6 +497,33 @@ error:
   _core.deinit();
   _core.destroy();
   return false;
+}
+
+void libretro::Core::reset()
+{
+  _gameLoaded = false;
+  _samples = NULL;
+  _samplesCount = 0;
+  _libretroPath = NULL;
+  _performanceLevel = 0;
+  _pixelFormat = RETRO_PIXEL_FORMAT_UNKNOWN;
+  _supportsNoGame = false;
+  _rotation = 0;
+  _supportAchievements = false;
+  _inputDescriptorsCount = 0;
+  _inputDescriptors = NULL;
+  _variablesCount = 0;
+  _variables = 0;
+  memset(&_hardwareRenderCallback, 0, sizeof(_hardwareRenderCallback));
+  _needsHardwareRender = false;
+  memset(&_systemInfo, 0, sizeof(_systemInfo));
+  memset(&_systemAVInfo, 0, sizeof(_systemAVInfo));
+  _subsystemInfoCount = 0;
+  _subsystemInfo = NULL;
+  _controllerInfoCount = 0;
+  _controllerInfo = NULL;
+  _ports = NULL;
+  memset(&_memoryMap, 0, sizeof(_memoryMap));
 }
 
 void libretro::Core::log(enum retro_log_level level, const char* fmt, va_list args) const
