@@ -2,16 +2,19 @@
 #include "Memory.h"
 #include "CoreInfo.h"
 
+#include "imguiext/imguial_button.h"
+#include "imguiext/imguial_fonts.h"
+#include "imguiext/imguifilesystem.h"
+#include "imguiext/imguidock.h"
+
+#include "rapidjson/document.h"
+#include "rapidjson/filewritestream.h"
+#include "rapidjson/prettywriter.h"
+
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
-
-#include "imguiext/imguial_button.h"
-#include "imguiext/imguial_fonts.h"
-#include "imguiext/imguifilesystem.h"
-
-#include "imguiext/imguidock.h"
 
 static const char* s_gameControllerDB[] =
 {
@@ -54,8 +57,8 @@ protected:
   State          _state;
   libretro::Core _core;
   std::string    _extensions;
-  std::string    _coreFolder;
-  std::string    _gameFolder;
+
+  rapidjson::Document _json;
 
   static void s_audioCallback(void* udata, Uint8* stream, int len)
   {
@@ -187,12 +190,61 @@ public:
     }
 
     {
+      // Read core options and input configuration
+      if (!_loader.init(&_logger))
+      {
+        SDL_CloseAudioDevice(_audioDev);
+        _fifo.destroy();
+        SDL_GL_DeleteContext(_glContext);
+        SDL_DestroyWindow(_window);
+        return false;
+      }
+
+      size_t size;
+      void* data = _loader.load(&size, "config.json");
+
+      if (data != NULL)
+      {
+        _json.Parse((char*)data, size);
+        _loader.free(data);
+
+        if (_json.HasParseError())
+        {
+          _json.SetObject();
+        }
+      }
+      else
+      {
+        _json.SetObject();
+      }
+
+      if (!_json.HasMember("config"))
+      {
+        _json.AddMember("config", rapidjson::Value(rapidjson::kObjectType), _json.GetAllocator());
+      }
+
+      if (!_json.HasMember("input"))
+      {
+        _json.AddMember("input", rapidjson::Value(rapidjson::kObjectType), _json.GetAllocator());
+      }
+
+      if (!_json.HasMember("corepath"))
+      {
+        _json.AddMember("corepath", rapidjson::Value(""), _json.GetAllocator());
+      }
+
+      if (!_json.HasMember("gamepath"))
+      {
+        _json.AddMember("gamepath", rapidjson::Value(""), _json.GetAllocator());
+      }
+    }
+
+    {
       // Initialize components
-      bool ok = _config.init(&_logger);
+      bool ok = _config.init(&_logger, &_json["config"]);
       ok = ok && _video.init(&_logger);
       ok = ok && _audio.init(&_logger, _audioSpec.freq, &_fifo);
-      ok = ok && _input.init(&_logger);
-      ok = ok && _loader.init(&_logger);
+      ok = ok && _input.init(&_logger, &_json["input"]);
       ok = ok && _allocator.init(&_logger);
       ok = ok && _memory.init(&_core);
 
@@ -224,6 +276,18 @@ public:
   void destroy()
   {
     ImGui::SaveDock("imguidock.ini");
+
+    {
+      FILE* file = fopen("config.json", "wb");
+
+      char buffer[65536];
+      rapidjson::FileWriteStream os(file, buffer, sizeof(buffer));
+
+      rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer(os);
+      _json.Accept(writer);
+
+      fclose(file);
+    }
 
     _memory.destroy();
     _input.destroy();
@@ -351,9 +415,9 @@ public:
       );
 
 #ifdef _WIN32
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].GetString(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #else
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _coreFolder.c_str(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].GetString(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #endif
 
       if (strlen(path) > 0)
@@ -364,7 +428,7 @@ public:
         {
           char folder[ImGuiFs::MAX_PATH_BYTES];
           ImGuiFs::PathGetDirectoryName(path, folder);
-          _coreFolder = folder;
+          _json["corepath"].SetString(folder, _json.GetAllocator());
           
           _state = State::kGetGamePath;
           const char* ext = _core.getSystemInfo()->valid_extensions;
@@ -396,7 +460,7 @@ public:
       }
 
       static ImGuiFs::Dialog gameDialog;
-      path = gameDialog.chooseFileDialog(loadGamePressed, _gameFolder.c_str(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
+      path = gameDialog.chooseFileDialog(loadGamePressed, _json["gamepath"].GetString(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
 
       if (strlen(path) > 0)
       {
@@ -404,7 +468,7 @@ public:
         {
           char folder[ImGuiFs::MAX_PATH_BYTES];
           ImGuiFs::PathGetDirectoryName(path, folder);
-          _gameFolder = folder;
+          _json["gamepath"].SetString(folder, _json.GetAllocator());
           
           _state = State::kRunning;
         }

@@ -204,9 +204,10 @@ void Logger::vprintf(enum retro_log_level level, const char* fmt, va_list args)
   _logger.VPrintf(lvl, fmt, args);
 }
 
-bool Config::init(libretro::LoggerComponent* logger)
+bool Config::init(libretro::LoggerComponent* logger, rapidjson::Value* json)
 {
   _logger = logger;
+  _json = json;
 
   if (fnkdat(NULL, 0, 0, FNKDAT_INIT) != 0)
   {
@@ -723,7 +724,7 @@ again:
   _fifo->write(output, size);
 }
 
-bool Input::init(libretro::LoggerComponent* logger)
+bool Input::init(libretro::LoggerComponent* logger, rapidjson::Value* json)
 {
   GLint previous_texture;
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous_texture);
@@ -739,6 +740,7 @@ bool Input::init(libretro::LoggerComponent* logger)
   glBindTexture(GL_TEXTURE_2D, previous_texture);
 
   _logger = logger;
+  _json = json;
   _opened = true;
   return true;
 }

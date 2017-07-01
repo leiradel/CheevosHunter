@@ -5,6 +5,8 @@
 #include "imguiext/imguial_log.h"
 #include "speex/speex_resampler.h"
 
+#include "rapidjson/document.h"
+
 #include <stdarg.h>
 #include <string>
 #include <vector>
@@ -55,7 +57,7 @@ protected:
 class Config: public libretro::ConfigComponent
 {
 public:
-  bool init(libretro::LoggerComponent* logger);
+  bool init(libretro::LoggerComponent* logger, rapidjson::Value* json);
   void destroy();
   void reset();
   void draw();
@@ -84,6 +86,8 @@ protected:
   std::string    _coreAssetsPath;
   std::string    _savePath;
 
+  rapidjson::Value* _json;
+
   bool                  _updated;
   std::vector<Variable> _variables;
 };
@@ -106,7 +110,7 @@ public:
   virtual void showMessage(const char* msg, unsigned frames) override;
 
 protected:
-  libretro::LoggerComponent*          _logger;
+  libretro::LoggerComponent* _logger;
   GLuint                  _texture;
   unsigned                _textureWidth;
   unsigned                _textureHeight;
@@ -148,7 +152,7 @@ protected:
 class Input: public libretro::InputComponent
 {
 public:
-  bool init(libretro::LoggerComponent* logger);
+  bool init(libretro::LoggerComponent* logger, rapidjson::Value* json);
   void destroy();
   void reset();
   void draw();
@@ -213,6 +217,8 @@ protected:
   bool   _opened;
   GLuint _texture;
   bool   _updated;
+
+  rapidjson::Value* _json;
 
   std::map<SDL_JoystickID, Pad> _pads;
   std::vector<Descriptor>       _descriptors;
