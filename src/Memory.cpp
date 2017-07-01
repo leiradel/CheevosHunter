@@ -36,7 +36,8 @@ void Memory::draw(bool running)
       "Sega Mega Drive",
       "Game Boy",
       "Game Boy Color",
-      "Game Boy Advance"
+      "Game Boy Advance",
+      "PC Engine"
     };
     
     int old = _platform;
@@ -75,6 +76,10 @@ void Memory::draw(bool running)
       
       case 7: // GBA
         initGBA();
+        break;
+      
+      case 8: // PCE
+        initPCE();
         break;
       }
     }
@@ -289,6 +294,26 @@ void Memory::initGBA()
     {RETRO_MEMORY_SYSTEM_RAM, 0x3000000,  32 * 1024, "wram0", "On-chip Work RAM"},
     {-1,                      0x2000000, 256 * 1024, "wram1", "On-board Work RAM"},
     {RETRO_MEMORY_SAVE_RAM,   0xe000000,          0, "sram",  "Save RAM"},
+    {0}
+  };
+
+  initWidthMmap(blocks) || initWidthMdata(blocks);
+}
+
+void Memory::initPCE()
+{
+  /*
+   * TODO This is clearly wrong. SRAM doesn't start at 0, but I don't know
+   * where it starts and maybe it's game dependent. WRAM starts at that
+   * address I think, but it's banked so the addresses are not valid for the
+   * CPU. We should probably just make every region start at 0 and show a
+   * contiguous view of the memory regardless of how the CPU addresses the
+   * memory.
+   */
+  static const Block blocks[] =
+  {
+    {RETRO_MEMORY_SYSTEM_RAM, 0x1f0200, 32 * 1024, "wram", "Work RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0x000000,         0, "sram", "Save RAM"},
     {0}
   };
 

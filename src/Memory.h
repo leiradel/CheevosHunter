@@ -45,6 +45,7 @@ protected:
   void initGB();
   void initGBC();
   void initGBA();
+  void initPCE();
 
   libretro::Core* _core;
   int             _region;
