@@ -35,7 +35,8 @@ void Memory::draw(bool running)
       "Sega Master System",
       "Sega Mega Drive",
       "Game Boy",
-      "Game Boy Color"
+      "Game Boy Color",
+      "Game Boy Advance"
     };
     
     int old = _platform;
@@ -70,6 +71,10 @@ void Memory::draw(bool running)
       
       case 6: // GBC
         initGBC();
+        break;
+      
+      case 7: // GBA
+        initGBA();
         break;
       }
     }
@@ -275,4 +280,17 @@ void Memory::initGBC()
 {
   // I'm not sure this is right, but it's what Gambatte does
   initGB();
+}
+
+void Memory::initGBA()
+{
+  static const Block blocks[] =
+  {
+    {RETRO_MEMORY_SYSTEM_RAM, 0x3000000,  32 * 1024, "wram0", "On-chip Work RAM"},
+    {-1,                      0x2000000, 256 * 1024, "wram1", "On-board Work RAM"},
+    {RETRO_MEMORY_SAVE_RAM,   0xe000000,          0, "sram",  "Save RAM"},
+    {0}
+  };
+
+  initWidthMmap(blocks) || initWidthMdata(blocks);
 }
