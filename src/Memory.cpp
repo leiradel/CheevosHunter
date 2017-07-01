@@ -34,7 +34,8 @@ void Memory::draw(bool running)
       "Super Nintendo Entertainment System",
       "Sega Master System",
       "Sega Mega Drive",
-      "Game Boy"
+      "Game Boy",
+      "Game Boy Color"
     };
     
     int old = _platform;
@@ -65,6 +66,10 @@ void Memory::draw(bool running)
       
       case 5: // GB
         initGB();
+        break;
+      
+      case 6: // GBC
+        initGBC();
         break;
       }
     }
@@ -264,4 +269,10 @@ void Memory::initGB()
   };
 
   initWidthMmap(blocks) || initWidthMdata(blocks);
+}
+
+void Memory::initGBC()
+{
+  // I'm not sure this is right, but it's what Gambatte does
+  initGB();
 }

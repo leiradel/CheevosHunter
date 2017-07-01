@@ -43,6 +43,7 @@ protected:
   void initSMS();
   void initMD();
   void initGB();
+  void initGBC();
 
   libretro::Core* _core;
   int             _region;
