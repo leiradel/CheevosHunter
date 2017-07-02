@@ -7,14 +7,15 @@
 #include "imguiext/imguifilesystem.h"
 #include "imguiext/imguidock.h"
 
-#include "rapidjson/document.h"
-#include "rapidjson/filewritestream.h"
-#include "rapidjson/prettywriter.h"
+#include "json.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
+
+// Ugh
+using json = nlohmann::json;
 
 static const char* s_gameControllerDB[] =
 {
@@ -58,7 +59,7 @@ protected:
   libretro::Core _core;
   std::string    _extensions;
 
-  rapidjson::Document _json;
+  json _json;
 
   static void s_audioCallback(void* udata, Uint8* stream, int len)
   {
@@ -205,37 +206,48 @@ public:
 
       if (data != NULL)
       {
-        _json.Parse((char*)data, size);
+        bool ok = true;
+
+        // Fuck exceptions
+        try
+        {
+          _json = json::parse((char*)data, (char*)data + size);
+        }
+        catch (std::exception& e)
+        {
+          ok = false;
+        }
+
         _loader.free(data);
 
-        if (_json.HasParseError())
+        if (!ok)
         {
-          _json.SetObject();
+          _json = json::object();
         }
       }
       else
       {
-        _json.SetObject();
+        _json = json::object();
       }
 
-      if (!_json.HasMember("config"))
+      if (_json.find("config") == _json.end())
       {
-        _json.AddMember("config", rapidjson::Value(rapidjson::kObjectType), _json.GetAllocator());
+        _json["config"] = json::object();
       }
 
-      if (!_json.HasMember("input"))
+      if (_json.find("input") == _json.end())
       {
-        _json.AddMember("input", rapidjson::Value(rapidjson::kObjectType), _json.GetAllocator());
+        _json["input"] = json::object();
       }
 
-      if (!_json.HasMember("corepath"))
+      if (_json.find("corepath") == _json.end())
       {
-        _json.AddMember("corepath", rapidjson::Value(""), _json.GetAllocator());
+        _json["corepath"] = "";
       }
 
-      if (!_json.HasMember("gamepath"))
+      if (_json.find("gamepath") == _json.end())
       {
-        _json.AddMember("gamepath", rapidjson::Value(""), _json.GetAllocator());
+        _json["gamepath"] = "";
       }
     }
 
@@ -278,14 +290,9 @@ public:
     ImGui::SaveDock("imguidock.ini");
 
     {
+      std::string cfg = _json.dump(2);
       FILE* file = fopen("config.json", "wb");
-
-      char buffer[65536];
-      rapidjson::FileWriteStream os(file, buffer, sizeof(buffer));
-
-      rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer(os);
-      _json.Accept(writer);
-
+      fwrite(cfg.c_str(), 1, cfg.size(), file);
       fclose(file);
     }
 
@@ -415,9 +422,9 @@ public:
       );
 
 #ifdef _WIN32
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].GetString(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].get<std::string>().c_str(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #else
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].GetString(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].get<std::string>().c_str(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #endif
 
       if (strlen(path) > 0)
@@ -428,7 +435,7 @@ public:
         {
           char folder[ImGuiFs::MAX_PATH_BYTES];
           ImGuiFs::PathGetDirectoryName(path, folder);
-          _json["corepath"].SetString(folder, _json.GetAllocator());
+          _json["corepath"] = folder;
           
           _state = State::kGetGamePath;
           const char* ext = _core.getSystemInfo()->valid_extensions;
@@ -460,7 +467,7 @@ public:
       }
 
       static ImGuiFs::Dialog gameDialog;
-      path = gameDialog.chooseFileDialog(loadGamePressed, _json["gamepath"].GetString(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
+      path = gameDialog.chooseFileDialog(loadGamePressed, _json["gamepath"].get<std::string>().c_str(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
 
       if (strlen(path) > 0)
       {
@@ -468,7 +475,7 @@ public:
         {
           char folder[ImGuiFs::MAX_PATH_BYTES];
           ImGuiFs::PathGetDirectoryName(path, folder);
-          _json["gamepath"].SetString(folder, _json.GetAllocator());
+          _json["gamepath"] = folder;
           
           _state = State::kRunning;
         }

@@ -204,7 +204,7 @@ void Logger::vprintf(enum retro_log_level level, const char* fmt, va_list args)
   _logger.VPrintf(lvl, fmt, args);
 }
 
-bool Config::init(libretro::LoggerComponent* logger, rapidjson::Value* json)
+bool Config::init(libretro::LoggerComponent* logger, json* json)
 {
   _logger = logger;
   _json = json;
@@ -280,7 +280,12 @@ void Config::draw()
 
     int old = var._selected;
     ImGui::Combo(var._name.c_str(), &var._selected, Getter::get, (void*)&var, var._options.size());
-    _updated = _updated || old != var._selected;
+
+    if (old != var._selected)
+    {
+      (*_json)[var._key] = var._options[var._selected];
+      _updated = true;
+    }
   }
 }
 
@@ -309,31 +314,49 @@ void Config::setVariables(const struct retro_variable* variables, unsigned count
     const char* aux = strchr(variables->value, ';');
     while (isspace(*++aux)) /* nothing */;
 
-    var._name = std::string(variables->value, aux - variables->value );
+    var._name = std::string(variables->value, aux - variables->value);
+    const char* name = var._key.c_str();
+    const char* value = NULL;
+
+    if (_json->find(name) != _json->end())
+    {
+      value = (*_json)[name].get<std::string>().c_str();
+    }
 
     while (isspace(*aux))
     {
       aux++;
     }
 
-    for (;;)
+    var._selected = 0;
+
+    for (unsigned j = 0; aux != NULL; j++)
     {
       const char* pipe = strchr(aux, '|');
+      std::string option;
 
       if (pipe != NULL)
       {
-        var._options.push_back(std::string(aux, pipe - aux));
+        option.assign(aux, pipe - aux);
         aux = pipe + 1;
       }
       else
       {
-        var._options.push_back(std::string(aux));
-        break;
+        option.assign(aux);
+        aux = NULL;
+      }
+
+      var._options.push_back(option);
+
+      if (value != NULL && option == value)
+      {
+        var._selected = j;
+        _updated = _updated || j != 0;
       }
     }
 
-    var._selected = 0;
     _variables.push_back(var);
+    (*_json)[name] = var._options[var._selected];
   }
 }
 
@@ -724,7 +747,7 @@ again:
   _fifo->write(output, size);
 }
 
-bool Input::init(libretro::LoggerComponent* logger, rapidjson::Value* json)
+bool Input::init(libretro::LoggerComponent* logger, json* json)
 {
   GLint previous_texture;
   glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous_texture);

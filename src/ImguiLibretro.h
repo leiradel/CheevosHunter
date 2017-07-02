@@ -5,7 +5,7 @@
 #include "imguiext/imguial_log.h"
 #include "speex/speex_resampler.h"
 
-#include "rapidjson/document.h"
+#include "json.hpp"
 
 #include <stdarg.h>
 #include <string>
@@ -14,6 +14,8 @@
 
 #include <SDL.h>
 #include <SDL_opengl.h>
+
+using json = nlohmann::json;
 
 class Fifo
 {
@@ -57,7 +59,7 @@ protected:
 class Config: public libretro::ConfigComponent
 {
 public:
-  bool init(libretro::LoggerComponent* logger, rapidjson::Value* json);
+  bool init(libretro::LoggerComponent* logger, json* json);
   void destroy();
   void reset();
   void draw();
@@ -86,7 +88,7 @@ protected:
   std::string    _coreAssetsPath;
   std::string    _savePath;
 
-  rapidjson::Value* _json;
+  json* _json;
 
   bool                  _updated;
   std::vector<Variable> _variables;
@@ -152,7 +154,7 @@ protected:
 class Input: public libretro::InputComponent
 {
 public:
-  bool init(libretro::LoggerComponent* logger, rapidjson::Value* json);
+  bool init(libretro::LoggerComponent* logger, json* json);
   void destroy();
   void reset();
   void draw();
@@ -218,7 +220,7 @@ protected:
   GLuint _texture;
   bool   _updated;
 
-  rapidjson::Value* _json;
+  json* _json;
 
   std::map<SDL_JoystickID, Pad> _pads;
   std::vector<Descriptor>       _descriptors;
