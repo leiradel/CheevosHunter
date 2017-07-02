@@ -57,9 +57,14 @@ protected:
 
   State          _state;
   libretro::Core _core;
+  std::string    _coreKey;
   std::string    _extensions;
 
-  json _json;
+  json        _appCfg;
+  json        _coreCfg;
+  json        _inputCfg;
+  std::string _corePath;
+  std::string _gamePath;
 
   static void s_audioCallback(void* udata, Uint8* stream, int len)
   {
@@ -211,9 +216,9 @@ public:
         // Fuck exceptions
         try
         {
-          _json = json::parse((char*)data, (char*)data + size);
+          _appCfg = json::parse((char*)data, (char*)data + size);
         }
-        catch (std::exception& e)
+        catch (...)
         {
           ok = false;
         }
@@ -222,41 +227,51 @@ public:
 
         if (!ok)
         {
-          _json = json::object();
+          _appCfg = json::object();
         }
       }
       else
       {
-        _json = json::object();
+        _appCfg = json::object();
       }
 
-      if (_json.find("config") == _json.end())
+      if (_appCfg.find("corepath") == _appCfg.end())
       {
-        _json["config"] = json::object();
+        _corePath = "";
+      }
+      {
+        _corePath = _appCfg["corepath"].get<std::string>();
       }
 
-      if (_json.find("input") == _json.end())
+      if (_appCfg.find("gamepath") == _appCfg.end())
       {
-        _json["input"] = json::object();
+        _gamePath = "";
+      }
+      else
+      {
+        _gamePath = _appCfg["gamepath"].get<std::string>();
       }
 
-      if (_json.find("corepath") == _json.end())
+      if (_appCfg.find("corecfg") == _appCfg.end())
       {
-        _json["corepath"] = "";
+        _appCfg["corecfg"] = json::object();
       }
 
-      if (_json.find("gamepath") == _json.end())
+      if (_appCfg.find("inputcfg") == _appCfg.end())
       {
-        _json["gamepath"] = "";
+        _appCfg["inputcfg"] = json::object();
       }
+
+      _coreCfg = json::object();
+      _inputCfg = json::object();
     }
 
     {
       // Initialize components
-      bool ok = _config.init(&_logger, &_json["config"]);
+      bool ok = _config.init(&_logger, &_coreCfg);
       ok = ok && _video.init(&_logger);
       ok = ok && _audio.init(&_logger, _audioSpec.freq, &_fifo);
-      ok = ok && _input.init(&_logger, &_json["input"]);
+      ok = ok && _input.init(&_logger, &_inputCfg);
       ok = ok && _allocator.init(&_logger);
       ok = ok && _memory.init(&_core);
 
@@ -290,7 +305,12 @@ public:
     ImGui::SaveDock("imguidock.ini");
 
     {
-      std::string cfg = _json.dump(2);
+      _appCfg["corecfg"][_coreKey] = _coreCfg;
+      _appCfg["inputcfg"] = _inputCfg;
+      _appCfg["corepath"] = _corePath;
+      _appCfg["gamepath"] = _gamePath;
+
+      std::string cfg = _appCfg.dump(2);
       FILE* file = fopen("config.json", "wb");
       fwrite(cfg.c_str(), 1, cfg.size(), file);
       fclose(file);
@@ -422,22 +442,34 @@ public:
       );
 
 #ifdef _WIN32
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].get<std::string>().c_str(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _corePath.c_str(), ".dll", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #else
-      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _json["corepath"].get<std::string>().c_str(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
+      const char* path = coreDialog.chooseFileDialog(loadCorePressed, _corePath.c_str(), ".so", "Open Core", coreDialog.WindowSize, fileDialogPos);
 #endif
 
       if (strlen(path) > 0)
       {
+        // Get the core configuration before initializing the variables
+        char temp[ImGuiFs::MAX_PATH_BYTES];
+        char temp2[ImGuiFs::MAX_PATH_BYTES];
+        ImGuiFs::PathGetFileName(path, temp);
+        ImGuiFs::PathGetFileNameWithoutExtension(temp, temp2);
+        _coreKey = temp2;
+
+        json cfg = _appCfg["corecfg"];
+
+        if (cfg.find(_coreKey) != cfg.end())
+        {
+          _coreCfg = cfg[_coreKey];
+        }
+        
         _core.init(&_components);
 
         if (_core.loadCore(path))
         {
-          char folder[ImGuiFs::MAX_PATH_BYTES];
-          ImGuiFs::PathGetDirectoryName(path, folder);
-          _json["corepath"] = folder;
-          
-          _state = State::kGetGamePath;
+          ImGuiFs::PathGetDirectoryName(path, temp);
+          _corePath = temp;
+
           const char* ext = _core.getSystemInfo()->valid_extensions;
 
           if (ext != NULL)
@@ -463,19 +495,21 @@ public:
               ext++;
             }
           }
+
+          _state = State::kGetGamePath;
         }
       }
 
       static ImGuiFs::Dialog gameDialog;
-      path = gameDialog.chooseFileDialog(loadGamePressed, _json["gamepath"].get<std::string>().c_str(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
+      path = gameDialog.chooseFileDialog(loadGamePressed, _gamePath.c_str(), _extensions.c_str(), "Open Game", coreDialog.WindowSize, fileDialogPos);
 
       if (strlen(path) > 0)
       {
         if (_core.loadGame(path))
         {
-          char folder[ImGuiFs::MAX_PATH_BYTES];
-          ImGuiFs::PathGetDirectoryName(path, folder);
-          _json["gamepath"] = folder;
+          char temp[ImGuiFs::MAX_PATH_BYTES];
+          ImGuiFs::PathGetDirectoryName(path, temp);
+          _gamePath = temp;
           
           _state = State::kRunning;
         }
