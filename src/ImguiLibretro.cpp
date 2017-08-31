@@ -765,6 +765,17 @@ bool Input::init(libretro::LoggerComponent* logger, json* json)
   _logger = logger;
   _json = json;
   _opened = true;
+  _ports = 0;
+
+  ControllerType ctrl;
+  ctrl._description = "None";
+  ctrl._id = RETRO_DEVICE_NONE;
+
+  for (int i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
+  {
+    _ids[i].push_back(ctrl);
+  }
+
   return true;
 }
 
@@ -777,6 +788,18 @@ void Input::reset()
 {
   _descriptors.clear();
   _controllers.clear();
+
+  _ports = 0;
+
+  ControllerType ctrl;
+  ctrl._description = "None";
+  ctrl._id = RETRO_DEVICE_NONE;
+
+  for (int i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
+  {
+    _ids[i].clean();
+    _ids[i].push_back(ctrl);
+  }
 
   for (auto it = _pads.begin(); it != _pads.end(); ++it)
   {
@@ -821,51 +844,18 @@ void Input::draw()
       ImGui::NextColumn();
 
       {
-        char labels[512];
+        char labels[1024];
         char* aux = labels;
-        unsigned i = 1;
 
         aux += snprintf(aux, sizeof(labels) - (aux - labels), "Disconnected") + 1;
 
-        if (_controllers.size() != 0)
+        uint64_t bit = 1;
+
+        for (unsigned i = 0; i < 64; i++, bit <<= 1)
         {
-          for (auto it = _controllers.begin(); it != _controllers.end(); ++it, i++)
+          if ((_ports & bit) != 0)
           {
-            Controller* ctrl = &*it;
-            
-            for (auto it2 = ctrl->_types.begin(); it2 != ctrl->_types.end(); ++it2)
-            {
-              ControllerType* type = &*it2;
-
-              if ((type->_id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
-              {
-                aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connected to port %u", i) + 1;
-                break;
-              }
-            }
-          }
-        }
-        else
-        {
-          // No ports were specified, use the input descriptors to see how many ports we have
-          uint64_t ports = 0;
-
-          for (auto it = _descriptors.begin(); it != _descriptors.end(); ++it)
-          {
-            Descriptor* desc = &*it;
-
-            if (desc->_port < 64)
-            {
-              ports |= 1 << desc->_port;
-            }
-          }
-
-          for (unsigned i = 0; i < 64; i++)
-          {
-            if (ports & (1ULL << i))
-            {
-              aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connect to port %u", i + 1) + 1;
-            }
+            aux += snprintf(aux, sizeof(labels) - (aux - labels), "Connect to port %u", i + 1) + 1;
           }
         }
 
@@ -1061,6 +1051,18 @@ void Input::setInputDescriptors(const struct retro_input_descriptor* descs, unsi
     desc._description = descs->description;
 
     _descriptors.push_back(desc);
+
+    unsigned port = desc._port + 1;
+
+    if (port < sizeof(_ids) / sizeof(_ids[0]))
+    {
+      ControllerType ctrl;
+      ctrl._description = "RetroPad";
+      ctrl._id = RETRO_DEVICE_JOYPAD;
+
+      _ids[port].push_back(ctrl);
+      _ports |= 1ULL << port;
+    }
   }
 }
 
@@ -1077,6 +1079,34 @@ void Input::setControllerInfo(const struct retro_controller_info* info, unsigned
       type._id = info->types[j].id;
 
       ctrl._types.push_back(type);
+
+      if ((type._id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
+      {
+        unsigned port = i + 1;
+
+        if (port < sizeof(_ids) / sizeof(_ids[0]))
+        {
+          bool found = false;
+
+          for (auto it = _ids[port].begin(); it != _ids[port].end(); ++it)
+          {
+            if (it->_id == type._id)
+            {
+              // Overwrite the generic RetroPad description with the one from the controller info
+              it->_description = type._description;
+              found = true;
+              break;
+            }
+          }
+
+          if (!found)
+          {
+            _ids[port].push_back(type);
+          }
+
+          _ports |= 1ULL << port;
+        }
+      }
     }
 
     _controllers.push_back(ctrl);

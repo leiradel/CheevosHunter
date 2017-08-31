@@ -225,6 +225,9 @@ protected:
   std::map<SDL_JoystickID, Pad> _pads;
   std::vector<Descriptor>       _descriptors;
   std::vector<Controller>       _controllers;
+
+  uint64_t                    _ports;
+  std::vector<ControllerType> _ids[64];
 };
 
 class Loader: public libretro::LoaderComponent
