@@ -32,7 +32,7 @@ SOFTWARE.
 namespace libretro
 {
   /**
-   * CoreWrap contains a Core instance, and provides high level functionality.
+   * core contains a BareCore instance, and provides high level functionality.
    */
   class Core
   {
