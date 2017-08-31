@@ -797,7 +797,7 @@ void Input::reset()
 
   for (int i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
   {
-    _ids[i].clean();
+    _ids[i].clear();
     _ids[i].push_back(ctrl);
   }
 
