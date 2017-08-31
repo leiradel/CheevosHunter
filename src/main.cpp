@@ -306,7 +306,7 @@ public:
 
     {
       _appCfg["corecfg"][_coreKey] = _coreCfg;
-      _appCfg["inputcfg"] = _inputCfg;
+      _appCfg["inputcfg"][_coreKey] = _inputCfg;
       _appCfg["corepath"] = _corePath;
       _appCfg["gamepath"] = _gamePath;
 
@@ -420,6 +420,8 @@ public:
       _input.reset();
       _loader.reset();
       _allocator.reset();
+      _coreCfg = json::object();
+      _inputCfg = json::object();
       _extensions.clear();
       _core.destroy();
       _memory.reset();
@@ -449,7 +451,7 @@ public:
 
       if (strlen(path) > 0)
       {
-        // Get the core configuration before initializing the variables
+        // Get the core configuration before initializing
         char temp[ImGuiFs::MAX_PATH_BYTES];
         char temp2[ImGuiFs::MAX_PATH_BYTES];
         ImGuiFs::PathGetFileName(path, temp);
@@ -461,6 +463,13 @@ public:
         if (cfg.find(_coreKey) != cfg.end())
         {
           _coreCfg = cfg[_coreKey];
+        }
+
+        cfg = _appCfg["inputcfg"];
+
+        if (cfg.find(_coreKey) != cfg.end())
+        {
+          _inputCfg = cfg[_coreKey];
         }
         
         _core.init(&_components);
@@ -522,6 +531,8 @@ public:
           _input.reset();
           _loader.reset();
           _allocator.reset();
+          _coreCfg = json::object();
+          _inputCfg = json::object();
           _extensions.clear();
 
           _state = State::kGetCorePath;
