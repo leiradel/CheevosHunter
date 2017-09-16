@@ -37,7 +37,8 @@ void Memory::draw(bool running)
       "Game Boy",
       "Game Boy Color",
       "Game Boy Advance",
-      "PC Engine"
+      "PC Engine",
+      "Atari 2600"
     };
     
     int old = _platform;
@@ -80,6 +81,10 @@ void Memory::draw(bool running)
       
       case 8: // PCE
         initPCE();
+        break;
+      
+      case 9: // 2600
+        initA2600();
         break;
       }
     }
@@ -314,6 +319,17 @@ void Memory::initPCE()
   {
     {RETRO_MEMORY_SYSTEM_RAM, 0x1f0200, 32 * 1024, "wram", "Work RAM"},
     {RETRO_MEMORY_SAVE_RAM,   0x000000,         0, "sram", "Save RAM"},
+    {0}
+  };
+
+  initWidthMmap(blocks) || initWidthMdata(blocks);
+}
+
+void Memory::initA2600()
+{
+  static const Block blocks[] =
+  {
+    {RETRO_MEMORY_SYSTEM_RAM, 0x80, 128, "wram", "Work RAM"},
     {0}
   };
 
