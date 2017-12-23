@@ -239,6 +239,7 @@ public:
       {
         _corePath = "";
       }
+      else
       {
         _corePath = _appCfg["corepath"].get<std::string>();
       }
