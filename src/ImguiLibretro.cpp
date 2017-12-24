@@ -1052,7 +1052,7 @@ void Input::setInputDescriptors(const struct retro_input_descriptor* descs, unsi
 
     _descriptors.push_back(desc);
 
-    unsigned port = desc._port + 1;
+    unsigned port = desc._port;
 
     if (port < sizeof(_ids) / sizeof(_ids[0]))
     {
@@ -1082,7 +1082,7 @@ void Input::setControllerInfo(const struct retro_controller_info* info, unsigned
 
       if ((type._id & RETRO_DEVICE_MASK) == RETRO_DEVICE_JOYPAD)
       {
-        unsigned port = i + 1;
+        unsigned port = i;
 
         if (port < sizeof(_ids) / sizeof(_ids[0]))
         {
