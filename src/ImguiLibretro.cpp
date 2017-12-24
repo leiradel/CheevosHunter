@@ -771,7 +771,7 @@ bool Input::init(libretro::LoggerComponent* logger, json* json)
   ctrl._description = "None";
   ctrl._id = RETRO_DEVICE_NONE;
 
-  for (int i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
+  for (unsigned i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
   {
     _ids[i].push_back(ctrl);
   }
@@ -795,7 +795,7 @@ void Input::reset()
   ctrl._description = "None";
   ctrl._id = RETRO_DEVICE_NONE;
 
-  for (int i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
+  for (unsigned i = 0; i < sizeof(_ids) / sizeof(_ids[0]); i++)
   {
     _ids[i].clear();
     _ids[i].push_back(ctrl);
