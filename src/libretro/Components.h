@@ -24,6 +24,11 @@ SOFTWARE.
 
 #pragma once
 
+/**
+ * Include cstdarg for va_list usage.
+ */
+#include <cstdarg>
+
 namespace libretro
 {
   /**
