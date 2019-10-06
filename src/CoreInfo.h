@@ -1,5 +1,5 @@
 #pragma once
 
-#include "libretro/Core.h"
+#include "libretro/CoreManager.h"
 
-void drawCoreInfo(libretro::Core* core);
+void drawCoreInfo(libretro::CoreManager const* const core);

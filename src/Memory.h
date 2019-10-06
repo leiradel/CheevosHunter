@@ -1,8 +1,10 @@
 #pragma once
 
-#include "libretro/Core.h"
+#include "libretro/CoreManager.h"
 
 #include "imgui/imgui.h"
+
+#include "Snapshot.h"
 
 #include <stdio.h>
 #include <string>
@@ -11,46 +13,30 @@
 class Memory
 {
 public:
-  bool init(libretro::Core* core);
+  bool init(libretro::CoreManager* core);
   void destroy();
   void draw(bool running);
 
   void reset();
 
+  Snapshot click() const;
+
 protected:
   struct Region
   {
-    std::string  _description;
-    void*        _contents;
-    size_t       _size;
-    size_t       _baseAddr;
+    std::string name;
+    uint32_t address;
+    void* data;
+    size_t size;
   };
 
-  struct Block
-  {
-    int         _memid;
-    size_t      _start;
-    size_t      _size;
-    const char* _identifier;
-    const char* _description;
-  };
+  static void asMemorySize(char* str, size_t size, size_t numBytes);
+  void addMemory(unsigned id, char const* name);
 
-  bool initWidthMmap(const Block* block);
-  bool initWidthMdata(const Block* block);
+  void drawMemory(bool running);
+  void drawFilters();
 
-  void initNES();
-  void initSNES();
-  void initSMS();
-  void initMD();
-  void initGB();
-  void initGBC();
-  void initGBA();
-  void initPCE();
-  void initA2600();
-
-  libretro::Core* _core;
-  int             _region;
-  int             _platform;
-
-  std::vector<Region> _regions;
+  libretro::CoreManager* _core;
+  std::vector<Region> _map;
+  int _selected;
 };

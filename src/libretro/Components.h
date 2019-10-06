@@ -29,18 +29,17 @@ SOFTWARE.
  */
 #include <cstdarg>
 
-namespace libretro
-{
+#include "libretropp.h"
+
+namespace libretro {
   /**
    * A logger component for Core instances.
    */
-  class LoggerComponent
-  {
+  class LoggerComponent   {
   public:
     virtual void vprintf(enum retro_log_level level, const char* fmt, va_list args) = 0;
 
-    inline void printf(enum retro_log_level level, const char* fmt, ...)
-    {
+    inline void printf(enum retro_log_level level, const char* fmt, ...) {
       va_list args;
       va_start(args, fmt);
       vprintf(level, fmt, args);
@@ -51,39 +50,34 @@ namespace libretro
   /**
    * A component that returns configuration values for CoreWrap instances.
    */
-  class ConfigComponent
-  {
+  class ConfigComponent {
   public:
-    virtual const char* getCoreAssetsDirectory() = 0;
-    virtual const char* getSaveDirectory() = 0;
-    virtual const char* getSystemPath() = 0;
+    virtual std::string const& getCoreAssetsDirectory() = 0;
+    virtual std::string const& getSaveDirectory() = 0;
+    virtual std::string const& getSystemPath() = 0;
 
-    virtual void setVariables(const struct retro_variable* variables, unsigned count) = 0;
+    virtual void setVariables(std::vector<Variable> const& variables) = 0;
     virtual bool varUpdated() = 0;
-    virtual const char* getVariable(const char* variable) = 0;
+    virtual std::string const& getVariable(std::string const& variable) = 0;
   };
 
   /**
    * A Video component.
    */
-  class VideoComponent
-  {
+  class VideoComponent {
   public:
-    virtual bool setGeometry(unsigned width, unsigned height, float aspect, enum retro_pixel_format pixelFormat, bool needsHardwareRender) = 0;
+    virtual bool setGeometry(unsigned width, unsigned height, float aspect, enum retro_pixel_format pixelFormat) = 0;
     virtual void refresh(const void* data, unsigned width, unsigned height, size_t pitch) = 0;
 
-    virtual bool                 supportsContext(enum retro_hw_context_type type) = 0;
-    virtual uintptr_t            getCurrentFramebuffer() = 0;
-    virtual retro_proc_address_t getProcAddress(const char* symbol) = 0;
+    virtual uintptr_t getCurrentFramebuffer() = 0;
 
-    virtual void showMessage(const char* msg, unsigned frames) = 0;
+    virtual void showMessage(std::string const& msg, unsigned frames) = 0;
   };
 
   /**
    * An audio component.
    */
-  class AudioComponent
-  {
+  class AudioComponent {
   public:
     virtual bool setRate(double rate) = 0;
     virtual void mix(const int16_t* samples, size_t frames) = 0;
@@ -92,12 +86,11 @@ namespace libretro
   /**
    * A component that provides input state to CoreWrap instances.
    */
-  class InputComponent
-  {
+  class InputComponent {
   public:
-    virtual void setInputDescriptors(const struct retro_input_descriptor* descs, unsigned count) = 0;
+    virtual void setInputDescriptors(std::vector<InputDescriptor> const& descs) = 0;
 
-    virtual void     setControllerInfo(const struct retro_controller_info* info, unsigned count) = 0;
+    virtual void     setControllerInfo(std::vector<ControllerInfo> const& info) = 0;
     virtual bool     ctrlUpdated() = 0;
     virtual unsigned getController(unsigned port) = 0;
 
@@ -108,33 +101,9 @@ namespace libretro
   /**
    * A component responsible for loading content from the file system.
    */
-  class LoaderComponent
-  {
+  class LoaderComponent {
   public:
-    virtual void* load(size_t* size, const char* path) = 0;
+    virtual void* load(size_t* size, std::string const& path) = 0;
     virtual void  free(void* data) = 0;
-  };
-
-  /**
-   * A component that returns memory chunks. Memory is never freed, so
-   * provide an implementation that frees all the allocated memory at once
-   * when the component is destroyed.
-   */
-  class AllocatorComponent
-  {
-  public:
-    virtual void  reset() = 0;
-    virtual void* allocate(size_t alignment, size_t numBytes) = 0;
-  };
-
-  struct Components
-  {
-    LoggerComponent*    _logger;
-    ConfigComponent*    _config;
-    VideoComponent*     _video;
-    AudioComponent*     _audio;
-    InputComponent*     _input;
-    LoaderComponent*    _loader;
-    AllocatorComponent* _allocator;
   };
 }

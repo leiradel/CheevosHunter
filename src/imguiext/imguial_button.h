@@ -36,8 +36,8 @@ namespace ImGuiAl
     }
     else
     {
-      static ImColor disabled_fg = ImColor( IM_COL32_BLACK );
-      static ImColor disabled_bg = ImColor( IM_COL32( 64, 64, 64, 255 ) );
+      static ImU32 disabled_fg = IM_COL32_BLACK;
+      static ImU32 disabled_bg = IM_COL32( 64, 64, 64, 255 );
       
       ImGui::PushStyleColor( ImGuiCol_Text, disabled_fg );
       ImGui::PushStyleColor( ImGuiCol_Button, disabled_bg );

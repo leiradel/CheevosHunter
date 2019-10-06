@@ -6,86 +6,49 @@
 
 #include <stdint.h>
 
-bool Memory::init(libretro::Core* core)
+bool Memory::init(libretro::CoreManager* core)
 {
   _core = core;
-  _region = 0;
-  _platform = 0;
+  _selected = 0;
   return true;
 }
 
 void Memory::destroy()
 {
-  _regions.clear();
+  _map.clear();
 }
 
 void Memory::draw(bool running)
 {
-  if (ImGui::BeginDock(ICON_FA_FILTER " Filters"))
-    ImGui::Text("filters");
-  ImGui::EndDock();
-
-  if (ImGui::BeginDock(ICON_FA_MICROCHIP " Memory"))
+  if (ImGui::Begin(ICON_FA_MICROCHIP " Memory"))
   {
-    static const char* platforms[] =
+    if (running && _map.size() == 0)
     {
-      "None",
-      "Nintendo Entertainment System",
-      "Super Nintendo Entertainment System",
-      "Sega Master System",
-      "Sega Mega Drive",
-      "Game Boy",
-      "Game Boy Color",
-      "Game Boy Advance",
-      "PC Engine",
-      "Atari 2600"
-    };
-    
-    int old = _platform;
-    ImGui::Combo("Platform", &_platform, platforms, running ? sizeof(platforms) / sizeof(platforms[0]) : 1);
+      addMemory(RETRO_MEMORY_SYSTEM_RAM, "System RAM ");
+      addMemory(RETRO_MEMORY_SAVE_RAM,   "Save RAM   ");
+      addMemory(RETRO_MEMORY_VIDEO_RAM,  "Video RAM  ");
+      addMemory(RETRO_MEMORY_RTC,        "RTC RAM    ");
 
-    if (old != _platform)
-    {
-      _regions.clear();
-      _region = 0;
+      std::vector<libretro::MemoryDescriptor> const& map = _core->getMemoryMap();
 
-      switch (_platform)
+      for (auto const& desc : map)
       {
-      case 1: // NES
-        initNES();
-        break;
-      
-      case 2: // SNES
-        initSNES();
-        break;
-      
-      case 3: // SMS
-        initSMS();
-        break;
-      
-      case 4: // MD
-        initMD();
-        break;
-      
-      case 5: // GB
-        initGB();
-        break;
-      
-      case 6: // GBC
-        initGBC();
-        break;
-      
-      case 7: // GBA
-        initGBA();
-        break;
-      
-      case 8: // PCE
-        initPCE();
-        break;
-      
-      case 9: // 2600
-        initA2600();
-        break;
+        if (desc.ptr == nullptr || desc.len == 0)
+        {
+          continue;
+        }
+
+        char name[64];
+        int numWritten = snprintf(name, sizeof(name), "@%08X  ", (unsigned)desc.start);
+        asMemorySize(name + numWritten, sizeof(name) - numWritten, desc.len);
+        
+        Region region;
+        region.address = static_cast<uint32_t>(desc.start);
+        region.data = static_cast<void*>(static_cast<uint8_t*>(desc.ptr) + desc.offset);
+        region.size = desc.len;
+        region.name = name;
+
+        _map.emplace_back(std::move(region));
       }
     }
 
@@ -93,245 +56,83 @@ void Memory::draw(bool running)
     {
       static bool description(void* data, int idx, const char** out_text)
       {
-        if (idx == 0)
-        {
-          *out_text = "None";
-        }
-        else
-        {
-          auto regions = (std::vector<Region>*)data;
-          *out_text = (*regions)[idx - 1]._description.c_str();
-        }
+        auto const map = (std::vector<Region>*)data;
+        *out_text = (*map)[idx].name.c_str();
 
         return true;
       }
     };
 
-    ImGui::Combo("Region", &_region, Getter::description, (void*)&_regions, _regions.size() + 1);
+    ImGui::Combo("Region", &_selected, Getter::description, (void*)&_map, _map.size());
 
-    if (_region != 0)
+    if (static_cast<size_t>(_selected) < _map.size())
     {
       static MemoryEditor editor;
 
-      Region* region = &_regions[_region - 1];
-      editor.Draw(region->_description.c_str(), (unsigned char*)region->_contents, region->_size, region->_baseAddr);
+      Region& region = _map[_selected];
+      editor.Draw(region.name.c_str(), (unsigned char*)region.data, region.size);
     }
   }
 
-  ImGui::EndDock();
+  ImGui::End();
 }
 
 void Memory::reset()
 {
-  _region = 0;
-  _platform = 0;
-  _regions.clear();
+  _map.clear();
+  _selected = 0;
 }
 
-bool Memory::initWidthMmap(const Block* block)
-{
-  const struct retro_memory_map* mmap = _core->getMemoryMap();
-
-  if (mmap == NULL || mmap->num_descriptors == 0)
+Snapshot Memory::click() const {
+  if (static_cast<size_t>(_selected) < _map.size())
   {
-    return false;
+    auto& region = _map[_selected];
+    return Snapshot(region.address, region.data, region.size);
   }
-
-  for (int i = 0; block->_description != NULL; i++, block++)
+  else
   {
-    const struct retro_memory_descriptor* desc = mmap->descriptors;
-    bool found = false;
-
-    for (unsigned j = 0; j < mmap->num_descriptors; j++, desc++)
-    {
-      if (desc->start == block->_start && (block->_size != 0 && desc->len >= block->_size))
-      {
-        found = true;
-        break;
-      }
-    }
-
-    if (!found)
-    {
-      continue;
-    }
-
-    Region region;
-
-    region._description = block->_description;
-    region._description.append(" (");
-    region._description.append(block->_identifier);
-    region._description.append(")");
-
-    region._contents = desc->ptr;
-    region._size     = desc->len;
-    region._baseAddr = desc->start;
-
-    _regions.push_back(region);
-  }
-
-  return true;
-}
-
-bool Memory::initWidthMdata(const Block* block)
-{
-  for (int i = 0; block->_description != NULL; i++, block++)
-  {
-    if (block->_memid == -1)
-    {
-      // Ignore this block
-      continue;
-    }
-
-    void* contents = _core->getMemoryData(block->_memid);
-
-    if (contents == NULL)
-    {
-      continue;
-    }
-
-    size_t size = _core->getMemorySize(block->_memid);
-
-    if (block->_size != 0 && size < block->_size)
-    {
-      continue;
-    }
-
-    Region region;
-
-    region._description = ICON_FA_MICROCHIP;
-    region._description.append(" ");
-    region._description.append(block->_description);
-    region._description.append(" (");
-    region._description.append(block->_identifier);
-    region._description.append(")");
-
-    region._contents = contents;
-    region._size     = size;
-    region._baseAddr = block->_start;
-
-    _regions.push_back(region);
-  }
-
-  return true;
-}
-
-void Memory::initNES()
-{
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SYSTEM_RAM, 0x0000, 2 * 1024, "wram", "Work RAM"},
-    {RETRO_MEMORY_SAVE_RAM,   0x6000, 8 * 1024, "sram", "Save RAM"},
-    {0}
-  };
-
-  initWidthMmap(blocks) || initWidthMdata(blocks);
-}
-
-void Memory::initSNES()
-{
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SAVE_RAM,   0x700000,          0, "sram", "Save RAM"},
-    {RETRO_MEMORY_SYSTEM_RAM, 0x7e0000, 128 * 1024, "wram", "Work RAM"},
-    {0}
-  };
-
-  initWidthMmap(blocks) || initWidthMdata(blocks);
-}
-
-void Memory::initSMS()
-{
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SYSTEM_RAM, 0xc000, 8 * 1024, "wram", "Work RAM"},
-    {0}
-  };
-
-  initWidthMmap(blocks) || initWidthMdata(blocks);
-
-  for (auto it = _regions.begin(); it != _regions.end(); ++it)
-  {
-    if (it->_baseAddr == 0xc000)
-    {
-      // Adjust Work RAM size because of the Genesis core
-      it->_size = 8192;
-      break;
-    }
+    return Snapshot(0, nullptr, 0);
   }
 }
 
-void Memory::initMD()
+void Memory::asMemorySize(char* str, size_t size, size_t numBytes)
 {
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SYSTEM_RAM, 0xff0000, 64 * 1024, "wram", "Work RAM"},
-    {0}
-  };
+  static char const* const units[] = {"bytes", "KiB", "MiB", "GiB", nullptr};
 
-  initWidthMmap(blocks) || initWidthMdata(blocks);
+  for (int unit = 0; units[unit] != nullptr; unit++)
+  {
+    size_t rest = numBytes % 1024;
+
+    if (rest != 0)
+    {
+      snprintf(str, size, "%4zu %s", numBytes, units[unit]);
+      return;
+    }
+
+    numBytes /= 1024;
+  }
+
+  snprintf(str, size, "%zu GiB", numBytes / (1024 * 1024 * 1024));
 }
 
-void Memory::initGB()
+void Memory::addMemory(unsigned id, char const* name)
 {
-  static const Block blocks[] =
+  Region region;
+
+  region.data = _core->getMemoryData(id);
+  region.size = _core->getMemorySize(id);
+
+  if (region.data == nullptr || region.size == 0)
   {
-    {RETRO_MEMORY_SYSTEM_RAM, 0xc000, 4 * 1024, "wram0", "Work RAM Bank 0"},
-    {-1,                      0xd000, 4 * 1024, "wram1", "Work RAM Bank 1"},
-    {-1,                      0xff80,      127, "zero",  "High RAM"},
-    {RETRO_MEMORY_SAVE_RAM,   0xa000,        0, "sram",  "Save RAM"},
-    {0}
-  };
+    return;
+  }
 
-  initWidthMmap(blocks) || initWidthMdata(blocks);
-}
+  region.address = 0;
 
-void Memory::initGBC()
-{
-  // I'm not sure this is right, but it's what Gambatte does
-  initGB();
-}
+  char buffer[64];
+  int numWritten = snprintf(buffer, sizeof(buffer), "%s", name);
+  asMemorySize(buffer + numWritten, sizeof(buffer) - numWritten, region.size);
 
-void Memory::initGBA()
-{
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SYSTEM_RAM, 0x3000000,  32 * 1024, "wram0", "On-chip Work RAM"},
-    {-1,                      0x2000000, 256 * 1024, "wram1", "On-board Work RAM"},
-    {RETRO_MEMORY_SAVE_RAM,   0xe000000,          0, "sram",  "Save RAM"},
-    {0}
-  };
-
-  initWidthMmap(blocks) || initWidthMdata(blocks);
-}
-
-void Memory::initPCE()
-{
-  /*
-   * TODO This is clearly wrong. SRAM doesn't start at 0, but I don't know
-   * where it starts and maybe it's game dependent. WRAM starts at that
-   * address I think, but it's banked so the addresses are not valid for the
-   * CPU. We should probably just make every region start at 0 and show a
-   * contiguous view of the memory regardless of how the CPU addresses the
-   * memory.
-   */
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SYSTEM_RAM, 0x1f0200, 32 * 1024, "wram", "Work RAM"},
-    {RETRO_MEMORY_SAVE_RAM,   0x000000,         0, "sram", "Save RAM"},
-    {0}
-  };
-
-  initWidthMmap(blocks) || initWidthMdata(blocks);
-}
-
-void Memory::initA2600()
-{
-  static const Block blocks[] =
-  {
-    {RETRO_MEMORY_SYSTEM_RAM, 0x80, 128, "wram", "Work RAM"},
-    {0}
-  };
-
-  initWidthMmap(blocks) || initWidthMdata(blocks);
+  region.name = buffer;
+  _map.emplace_back(std::move(region));
 }

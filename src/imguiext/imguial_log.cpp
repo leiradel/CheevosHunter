@@ -27,6 +27,13 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdio.h>
 
+static ImU32 HSV( float h, float s, float v, float a = 1.0f )
+{
+  float r, g, b;
+  ImGui::ColorConvertHSVtoRGB(h, s, v, r, g, b);
+  return IM_COL32(r * 255.0f, g * 255.0f, b * 255.0f, a * 255.0f);
+}
+
 ImGuiAl::Log::~Log()
 {
 }
@@ -69,12 +76,10 @@ void ImGuiAl::Log::SetColor( Level level, float r, float g, float b )
   float h, s, v;
   ImGui::ColorConvertRGBtoHSV( r, g, b, h, s, v );
   
-  v -= 0.3f;
-  
-  m_Colors[ level ][ 0 ] = ImColor( r, g, b );
-  m_Colors[ level ][ 1 ] = ImColor::HSV( h, s, v );
-  m_Colors[ level ][ 2 ] = ImColor::HSV( h, s, v + 0.1f );
-  m_Colors[ level ][ 3 ] = ImColor::HSV( h, s, v + 0.2f );
+  m_Colors[ level ][ 0 ] = IM_COL32( r * 255.0f, g * 255.0f, b * 255.0f, 255 );
+  m_Colors[ level ][ 1 ] = HSV( h, s, v - 0.2f);
+  m_Colors[ level ][ 2 ] = HSV( h, s, v - 0.1f );
+  m_Colors[ level ][ 3 ] = HSV( h, s, v );
 }
 
 void ImGuiAl::Log::SetLabel( Level level, const char* label )
@@ -208,7 +213,7 @@ int ImGuiAl::Log::Draw()
 {
   int action = 0;
   
-  for ( int i = 0; m_MoreActions[ i ] != NULL; i++ )
+  for ( int i = 0; m_MoreActions != NULL && m_MoreActions[ i ] != NULL; i++ )
   {
     if ( i != 0 )
     {
@@ -287,7 +292,7 @@ int ImGuiAl::Log::Draw()
   snprintf( id, sizeof( id ), "console_%p", this );
   id[ sizeof( id ) - 1 ] = 0;
   
-  ImGui::BeginChild( id, ImVec2( 0, -ImGui::GetItemsLineHeightWithSpacing() ), false, ImGuiWindowFlags_HorizontalScrollbar );
+  ImGui::BeginChild( id, ImVec2( 0.0f, 0.0f ), false, ImGuiWindowFlags_HorizontalScrollbar );
   ImGui::PushStyleVar( ImGuiStyleVar_ItemSpacing, ImVec2( 4, 1 ) );
   
   struct Iterator
@@ -296,7 +301,7 @@ int ImGuiAl::Log::Draw()
     {
       Log* self = (Log*)ud;
       
-      ImGui::PushStyleColor( ImGuiCol_Text, self->m_Colors[ level ][ 0 ].Value );
+      ImGui::PushStyleColor( ImGuiCol_Text, self->m_Colors[ level ][ 0 ] );
       ImGui::TextUnformatted( line );
       ImGui::PopStyleColor();
       

@@ -112,7 +112,7 @@ namespace ImGuiAl
     bool            m_Cumulative;
     ImGuiTextFilter m_Filter;
     bool            m_ScrollToBottom;
-    ImColor         m_Colors[ 4 ][ 4 ];
+    ImU32           m_Colors[ 4 ][ 4 ];
     const char*     m_Labels[ 4 ];
     const char*     m_CumulativeLabel;
     const char*     m_FilterHeaderLabel;

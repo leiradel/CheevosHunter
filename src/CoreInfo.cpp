@@ -45,7 +45,7 @@ static void table(int columns, ...)
   ImGui::Separator();
 }
 
-void drawCoreInfo(libretro::Core* core)
+void drawCoreInfo(libretro::CoreManager const* const core)
 {
   if (ImGui::CollapsingHeader("Basic Information"))
   {
@@ -81,41 +81,39 @@ void drawCoreInfo(libretro::Core* core)
 
   if (ImGui::CollapsingHeader("retro_system_info"))
   {
-    const struct retro_system_info* info = core->getSystemInfo();
+    libretro::SystemInfo const& info = core->getSystemInfo();
 
     table(
       2,
-      "library_name",     's', info->library_name,
-      "library_version",  's', info->library_version,
-      "valid_extensions", 's', info->valid_extensions,
-      "need_fullpath",    'b', info->need_fullpath,
-      "block_extract",    'b', info->block_extract,
+      "library_name",     's', info.libraryName,
+      "library_version",  's', info.libraryVersion,
+      "valid_extensions", 's', info.validExtensions,
+      "need_fullpath",    'b', info.needFullpath,
+      "block_extract",    'b', info.blockExtract,
       NULL
     );
   }
 
   if (ImGui::CollapsingHeader("retro_system_av_info"))
   {
-    const struct retro_system_av_info* av_info = core->getSystemAVInfo();
+    libretro::SystemAVInfo const& info = core->getSystemAVInfo();
 
     table(
       2,
-      "base_width",   'u', av_info->geometry.base_width,
-      "base_height",  'u', av_info->geometry.base_height,
-      "max_width",    'u', av_info->geometry.max_width,
-      "max_height",   'u', av_info->geometry.max_height,
-      "aspect_ratio", 'f', av_info->geometry.aspect_ratio,
-      "fps",          'f', av_info->timing.fps,
-      "sample_rate",  'f', av_info->timing.sample_rate,
+      "base_width",   'u', info.geometry.baseWidth,
+      "base_height",  'u', info.geometry.baseHeight,
+      "max_width",    'u', info.geometry.maxWidth,
+      "max_height",   'u', info.geometry.maxHeight,
+      "aspect_ratio", 'f', info.geometry.aspectRatio,
+      "fps",          'f', info.timing.fps,
+      "sample_rate",  'f', info.timing.sampleRate,
       NULL
     );
   }
 
   if (ImGui::CollapsingHeader("retro_input_descriptor"))
   {
-    unsigned count;
-    const struct retro_input_descriptor* desc = core->getInputDescriptors(&count);
-    const struct retro_input_descriptor* end = desc + count;
+    std::vector<libretro::InputDescriptor> const& desc = core->getInputDescriptors();
 
     ImVec2 min = ImGui::GetWindowContentRegionMin();
     ImVec2 max = ImGui::GetWindowContentRegionMax();
@@ -140,12 +138,12 @@ void drawCoreInfo(libretro::Core* core)
     ImGui::Separator();
     ImGui::EndChild();
 
-    max.y = ImGui::GetItemsLineHeightWithSpacing() * (count < 16 ? count : 16);
+    max.y = ImGui::GetItemsLineHeightWithSpacing() * (desc.size() < 16 ? desc.size() : 16);
 
     ImGui::BeginChild("retro_input_descriptor", max);
     ImGui::Columns(5, NULL, true);
 
-    for (; desc < end; desc++)
+    for (auto const& element : desc)
     {
       static const char* device_names[] =
       {
@@ -159,15 +157,15 @@ void drawCoreInfo(libretro::Core* core)
       };
 
       ImGui::Separator();
-      ImGui::Text("%u", desc->port);
+      ImGui::Text("%u", element.port);
       ImGui::NextColumn();
-      ImGui::Text("(%u) %s", desc->device, device_names[desc->device]);
+      ImGui::Text("(%u) %s", element.device, device_names[element.device]);
       ImGui::NextColumn();
-      ImGui::Text("%u", desc->index);
+      ImGui::Text("%u", element.index);
       ImGui::NextColumn();
-      ImGui::Text("(%2u) %s", desc->id, button_names[desc->id]);
+      ImGui::Text("(%2u) %s", element.id, button_names[element.id]);
       ImGui::NextColumn();
-      ImGui::Text("%s", desc->description);
+      ImGui::Text("%s", element.description.c_str());
       ImGui::NextColumn();
     }
 
@@ -178,9 +176,7 @@ void drawCoreInfo(libretro::Core* core)
 
   if (ImGui::CollapsingHeader("retro_controller_info"))
   {
-    unsigned count;
-    const struct retro_controller_info* info = core->getControllerInfo(&count);
-    const struct retro_controller_info* end = info + count;
+    std::vector<libretro::ControllerInfo> const& info = core->getControllerInfo();
 
     ImGui::Columns(3, NULL, true);
     ImGui::Separator();
@@ -191,28 +187,27 @@ void drawCoreInfo(libretro::Core* core)
     ImGui::Text("id");
     ImGui::NextColumn();
 
-    for (count = 0; info < end; count++, info++)
-    {
-      const struct retro_controller_description* type = info->types;
-      const struct retro_controller_description* end = type + info->num_types;
+    unsigned port = 0;
 
-      for (; type < end; type++)
+    for (auto const& element : info)
+    {
+      for (auto const& element2 : element.types)
       {
         static const char* device_names[] =
         {
           "None", "Joypad", "Mouse", "Keyboard", "Lightgun", "Analog", "Pointer"
         };
 
-        unsigned device = type->id & RETRO_DEVICE_MASK;
-
         ImGui::Separator();
-        ImGui::Text("%u", count);
+        ImGui::Text("%u", port);
         ImGui::NextColumn();
-        ImGui::Text("%s", type->desc);
+        ImGui::Text("%s", element2.desc.c_str());
         ImGui::NextColumn();
-        ImGui::Text("(0x%04X) %s", type->id, device_names[device]);
+        ImGui::Text("(0x%04X) %s", element2.id, device_names[element2.id & RETRO_DEVICE_MASK]);
         ImGui::NextColumn();
       }
+
+      port++;
     }
 
     ImGui::Columns(1);
@@ -221,9 +216,7 @@ void drawCoreInfo(libretro::Core* core)
 
   if (ImGui::CollapsingHeader("retro_variable"))
   {
-    unsigned count;
-    const struct retro_variable* var = core->getVariables(&count);
-    const struct retro_variable* end = var + count;
+    std::vector<libretro::Variable> const& vars = core->getVariables();
 
     ImGui::Columns(2, NULL, true);
     ImGui::Separator();
@@ -232,12 +225,12 @@ void drawCoreInfo(libretro::Core* core)
     ImGui::Text("value");
     ImGui::NextColumn();
 
-    for (; var < end; var++)
+    for (auto const& element : vars)
     {
       ImGui::Separator();
-      ImGui::Text("%s", var->key);
+      ImGui::Text("%s", element.key.c_str());
       ImGui::NextColumn();
-      ImGui::Text("%s", var->value);
+      ImGui::Text("%s", element.value.c_str());
       ImGui::NextColumn();
     }
 
@@ -247,11 +240,9 @@ void drawCoreInfo(libretro::Core* core)
 
   if (ImGui::CollapsingHeader("retro_subsystem_info"))
   {
-    unsigned count;
-    const struct retro_subsystem_info* info = core->getSubsystemInfo(&count);
-    const struct retro_subsystem_info* end = info + count;
+    std::vector<libretro::SubsystemInfo> const& info = core->getSubsystemInfo();
 
-    for (; info < end; info++)
+    for (auto const& element : info)
     {
       ImGui::Columns(3, NULL, true);
       ImGui::Separator();
@@ -263,25 +254,24 @@ void drawCoreInfo(libretro::Core* core)
       ImGui::NextColumn();
 
       ImGui::Separator();
-      ImGui::Text("%s", info->desc);
+      ImGui::Text("%s", element.desc.c_str());
       ImGui::NextColumn();
-      ImGui::Text("%s", info->ident);
+      ImGui::Text("%s", element.ident.c_str());
       ImGui::NextColumn();
-      ImGui::Text("%u", info->id);
+      ImGui::Text("%u", element.id);
       ImGui::NextColumn();
 
       ImGui::Columns(1);
       ImGui::Separator();
 
-      const struct retro_subsystem_rom_info* rom = info->roms;
-      const struct retro_subsystem_rom_info* end = rom + info->num_roms;
+      unsigned index2 = 0;
 
-      for (unsigned i = 0; rom < end; i++, rom++)
+      for (auto const& element2 : element.roms)
       {
         ImGui::Indent();
 
         char title[64];
-        snprintf(title, sizeof(title), "retro_subsystem_rom_info[%u]", i);
+        snprintf(title, sizeof(title), "retro_subsystem_rom_info[%u]", index2++);
 
         if (ImGui::CollapsingHeader(title))
         {
@@ -299,15 +289,15 @@ void drawCoreInfo(libretro::Core* core)
           ImGui::NextColumn();
 
           ImGui::Separator();
-          ImGui::Text("%s", rom->desc);
+          ImGui::Text("%s", element2.desc.c_str());
           ImGui::NextColumn();
-          ImGui::Text("%s", rom->valid_extensions);
+          ImGui::Text("%s", element2.validExtensions.c_str());
           ImGui::NextColumn();
-          ImGui::Text("%s", rom->need_fullpath ? "true" : "false");
+          ImGui::Text("%s", element2.needFullpath ? "true" : "false");
           ImGui::NextColumn();
-          ImGui::Text("%s", rom->block_extract ? "true" : "false");
+          ImGui::Text("%s", element2.blockExtract ? "true" : "false");
           ImGui::NextColumn();
-          ImGui::Text("%s", rom->required ? "true" : "false");
+          ImGui::Text("%s", element2.required ? "true" : "false");
           ImGui::NextColumn();
 
           ImGui::Columns(1);
@@ -315,13 +305,12 @@ void drawCoreInfo(libretro::Core* core)
 
           ImGui::Indent();
 
-          const struct retro_subsystem_memory_info* mem = rom->memory;
-          const struct retro_subsystem_memory_info* end = mem + rom->num_memory;
+          unsigned index3 = 0;
 
-          for (unsigned j = 0; mem < end; j++, mem++)
+          for (auto const& element3 : element2.memory)
           {
             char title[64];
-            snprintf(title, sizeof(title), "retro_subsystem_memory_info[%u]", j);
+            snprintf(title, sizeof(title), "retro_subsystem_memory_info[%u]", index3++);
 
             ImGui::Columns(3, NULL, true);
             ImGui::Separator();
@@ -335,9 +324,9 @@ void drawCoreInfo(libretro::Core* core)
             ImGui::Separator();
             ImGui::Text("%s", title);
             ImGui::NextColumn();
-            ImGui::Text("%s", mem->extension);
+            ImGui::Text("%s", element3.extension.c_str());
             ImGui::NextColumn();
-            ImGui::Text("0x%08X", mem->type);
+            ImGui::Text("0x%08X", element3.type);
             ImGui::NextColumn();
           }
 
@@ -351,9 +340,7 @@ void drawCoreInfo(libretro::Core* core)
 
   if (ImGui::CollapsingHeader("retro_memory_map"))
   {
-    const struct retro_memory_map* mmap = core->getMemoryMap();
-    const struct retro_memory_descriptor* desc = mmap->descriptors;
-    const struct retro_memory_descriptor* end = desc + mmap->num_descriptors;
+    std::vector<libretro::MemoryDescriptor> const& mmap = core->getMemoryMap();
 
     ImGui::Columns(8, NULL, true);
     ImGui::Separator();
@@ -374,21 +361,21 @@ void drawCoreInfo(libretro::Core* core)
     ImGui::Text("addrspace");
     ImGui::NextColumn();
 
-    for (; desc < end; desc++)
+    for (auto const& element : mmap)
     {
       char flags[7];
 
       flags[0] = 'M';
 
-      if ((desc->flags & RETRO_MEMDESC_MINSIZE_8) == RETRO_MEMDESC_MINSIZE_8)
+      if ((element.flags & RETRO_MEMDESC_MINSIZE_8) == RETRO_MEMDESC_MINSIZE_8)
       {
         flags[1] = '8';
       }
-      else if ((desc->flags & RETRO_MEMDESC_MINSIZE_4) == RETRO_MEMDESC_MINSIZE_4)
+      else if ((element.flags & RETRO_MEMDESC_MINSIZE_4) == RETRO_MEMDESC_MINSIZE_4)
       {
         flags[1] = '4';
       }
-      else if ((desc->flags & RETRO_MEMDESC_MINSIZE_2) == RETRO_MEMDESC_MINSIZE_2)
+      else if ((element.flags & RETRO_MEMDESC_MINSIZE_2) == RETRO_MEMDESC_MINSIZE_2)
       {
         flags[1] = '2';
       }
@@ -399,15 +386,15 @@ void drawCoreInfo(libretro::Core* core)
 
       flags[2] = 'A';
 
-      if ((desc->flags & RETRO_MEMDESC_ALIGN_8) == RETRO_MEMDESC_ALIGN_8)
+      if ((element.flags & RETRO_MEMDESC_ALIGN_8) == RETRO_MEMDESC_ALIGN_8)
       {
         flags[3] = '8';
       }
-      else if ((desc->flags & RETRO_MEMDESC_ALIGN_4) == RETRO_MEMDESC_ALIGN_4)
+      else if ((element.flags & RETRO_MEMDESC_ALIGN_4) == RETRO_MEMDESC_ALIGN_4)
       {
         flags[3] = '4';
       }
-      else if ((desc->flags & RETRO_MEMDESC_ALIGN_2) == RETRO_MEMDESC_ALIGN_2)
+      else if ((element.flags & RETRO_MEMDESC_ALIGN_2) == RETRO_MEMDESC_ALIGN_2)
       {
         flags[3] = '2';
       }
@@ -416,26 +403,26 @@ void drawCoreInfo(libretro::Core* core)
         flags[3] = '1';
       }
 
-      flags[4] = desc->flags & RETRO_MEMDESC_BIGENDIAN ? 'B' : 'b';
-      flags[5] = desc->flags & RETRO_MEMDESC_CONST ? 'C' : 'c';
+      flags[4] = element.flags & RETRO_MEMDESC_BIGENDIAN ? 'B' : 'b';
+      flags[5] = element.flags & RETRO_MEMDESC_CONST ? 'C' : 'c';
       flags[6] = 0;
 
       ImGui::Separator();
       ImGui::Text("%s", flags);
       ImGui::NextColumn();
-      ImGui::Text("%p", desc->ptr);
+      ImGui::Text("%p", element.ptr);
       ImGui::NextColumn();
-      ImGui::Text("0x%08X", desc->offset);
+      ImGui::Text("0x%08X", (unsigned)element.offset);
       ImGui::NextColumn();
-      ImGui::Text("0x%08X", desc->start);
+      ImGui::Text("0x%08X", (unsigned)element.start);
       ImGui::NextColumn();
-      ImGui::Text("0x%08X", desc->select);
+      ImGui::Text("0x%08X", (unsigned)element.select);
       ImGui::NextColumn();
-      ImGui::Text("0x%08X", desc->disconnect);
+      ImGui::Text("0x%08X", (unsigned)element.disconnect);
       ImGui::NextColumn();
-      ImGui::Text("0x%08X", desc->len);
+      ImGui::Text("0x%08X", (unsigned)element.len);
       ImGui::NextColumn();
-      ImGui::Text("%s", desc->addrspace);
+      ImGui::Text("%s", element.addrspace.c_str());
       ImGui::NextColumn();
     }
 

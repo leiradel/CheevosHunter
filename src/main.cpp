@@ -1,16 +1,20 @@
 #include "ImguiLibretro.h"
+#include "components/Audio.h"
+#include "components/Input.h"
+#include "components/Video.h"
 #include "Memory.h"
 #include "CoreInfo.h"
 
+#include "imguiext/imguial_term.h"
 #include "imguiext/imguial_button.h"
 #include "imguiext/imguial_fonts.h"
 #include "imguiext/imguifilesystem.h"
-#include "imguiext/imguidock.h"
 
 #include "json.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
+#include <imgui_impl_opengl2.h>
 #include <SDL.h>
 #include <SDL_opengl.h>
 
@@ -51,14 +55,10 @@ protected:
   Loader _loader;
   Memory _memory;
 
-  Allocator<256 * 1024> _allocator;
-
-  libretro::Components _components;
-
-  State          _state;
-  libretro::Core _core;
-  std::string    _coreKey;
-  std::string    _extensions;
+  State                 _state;
+  libretro::CoreManager _core;
+  std::string           _coreKey;
+  std::string           _extensions;
 
   json        _appCfg;
   json        _coreCfg;
@@ -82,19 +82,23 @@ protected:
     }
   }
 
-public:
-  Application()
+  void saveConfig()
   {
-    _components._logger    = &_logger;
-    _components._config    = &_config;
-    _components._video     = &_video;
-    _components._audio     = &_audio;
-    _components._input     = &_input;
-    _components._allocator = &_allocator;
-    _components._loader    = &_loader;
+    _appCfg["corecfg"][_coreKey] = _coreCfg;
+    _appCfg["inputcfg"][_coreKey] = _inputCfg;
+    _appCfg["corepath"] = _corePath;
+    _appCfg["gamepath"] = _gamePath;
+
+    std::string cfg = _appCfg.dump(2);
+    FILE* file = fopen("config.json", "wb");
+    fwrite(cfg.c_str(), 1, cfg.size(), file);
+    fclose(file);
   }
 
-  bool init(const char* title, int width, int height)
+public:
+  Application() {}
+
+  bool init(std::string const& title, int width, int height)
   {
     if (!_logger.init())
     {
@@ -109,7 +113,14 @@ public:
       }
 
       // Setup window
-      _window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+      SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+
+      Uint32 windowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE /*| SDL_WINDOW_ALLOW_HIGHDPI*/;
+      _window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, windowFlags);
 
       if (_window == NULL)
       {
@@ -124,11 +135,7 @@ public:
         return false;
       }
 
-      SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-      SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-      SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-      SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+      SDL_GL_MakeCurrent(_window, _glContext);
       SDL_GL_SetSwapInterval(0);
 
       // Init audio
@@ -151,7 +158,7 @@ public:
         return false;
       }
 
-      if (!_fifo.init(&_logger, _audioSpec.size * 2))
+      if (!_fifo.init(_audioSpec.size * 2))
       {
         SDL_CloseAudioDevice(_audioDev);
         SDL_GL_DeleteContext(_glContext);
@@ -167,8 +174,16 @@ public:
         SDL_GameControllerAddMapping(s_gameControllerDB[i]);
       }
 
-      // Setup ImGui binding
-      ImGui_ImplSdl_Init(_window);
+      // Setup ImGui
+      IMGUI_CHECKVERSION();
+      ImGui::CreateContext();
+      ImGuiIO& io = ImGui::GetIO();
+      io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+      ImGui::StyleColorsDark();
+
+      ImGui_ImplSDL2_InitForOpenGL(_window, _glContext);
+      ImGui_ImplOpenGL2_Init();
     }
 
     {
@@ -272,8 +287,7 @@ public:
       bool ok = _config.init(&_logger, &_coreCfg);
       ok = ok && _video.init(&_logger);
       ok = ok && _audio.init(&_logger, _audioSpec.freq, &_fifo);
-      ok = ok && _input.init(&_logger, &_inputCfg);
-      ok = ok && _allocator.init(&_logger);
+      ok = ok && _input.init(&_logger); // &_inputCfg
       ok = ok && _memory.init(&_core);
 
       if (!ok)
@@ -297,25 +311,12 @@ public:
     }
 
     _state = State::kGetCorePath;
-    ImGui::LoadDock("imguidock.ini");
     return true;
   }
 
   void destroy()
   {
-    ImGui::SaveDock("imguidock.ini");
-
-    {
-      _appCfg["corecfg"][_coreKey] = _coreCfg;
-      _appCfg["inputcfg"][_coreKey] = _inputCfg;
-      _appCfg["corepath"] = _corePath;
-      _appCfg["gamepath"] = _gamePath;
-
-      std::string cfg = _appCfg.dump(2);
-      FILE* file = fopen("config.json", "wb");
-      fwrite(cfg.c_str(), 1, cfg.size(), file);
-      fclose(file);
-    }
+    saveConfig();
 
     _memory.destroy();
     _input.destroy();
@@ -324,9 +325,13 @@ public:
     _config.destroy();
     _logger.destroy();
 
-    ImGui_ImplSdl_Shutdown();
+    ImGui_ImplOpenGL2_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+
     SDL_CloseAudioDevice(_audioDev);
     _fifo.destroy();
+
     SDL_GL_DeleteContext(_glContext);
     SDL_DestroyWindow(_window);
     SDL_Quit();
@@ -342,7 +347,9 @@ public:
 
       while (SDL_PollEvent(&event))
       {
-        if (!ImGui_ImplSdl_ProcessEvent(&event))
+        ImGui_ImplSDL2_ProcessEvent(&event);
+
+        //if (!ImGui_ImplSDL2_ProcessEvent(&event))
         {
           switch (event.type)
           {
@@ -355,6 +362,8 @@ public:
           case SDL_CONTROLLERBUTTONUP:
           case SDL_CONTROLLERBUTTONDOWN:
           case SDL_CONTROLLERAXISMOTION:
+          case SDL_KEYUP:
+          case SDL_KEYDOWN:
             _input.processEvent(&event);
             break;
           }
@@ -366,14 +375,20 @@ public:
         _core.step();
       }
 
-      ImGui_ImplSdl_NewFrame(_window);
-      draw();
-      glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
+      ImGui_ImplOpenGL2_NewFrame();
+      ImGui_ImplSDL2_NewFrame(_window);
+      ImGui::NewFrame();
 
+      draw();
+
+      ImGui::Render();
+
+      glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
       glClearColor(0.05f, 0.05f, 0.05f, 0);
       glClear(GL_COLOR_BUFFER_BIT);
 
-      ImGui::Render();
+      ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+
       SDL_GL_SwapWindow(_window);
       SDL_Delay(1);
     }
@@ -414,13 +429,14 @@ public:
     {
       _logger.printf(RETRO_LOG_DEBUG, "Stopped");
 
+      saveConfig();
+
       _fifo.reset();
       _config.reset();
       _video.reset();
       _audio.reset();
       _input.reset();
       _loader.reset();
-      _allocator.reset();
       _coreCfg = json::object();
       _inputCfg = json::object();
       _extensions.clear();
@@ -473,14 +489,14 @@ public:
           _inputCfg = cfg[_coreKey];
         }
         
-        _core.init(&_components);
+        _core.init(&_logger, &_config, &_video, &_audio, &_input, &_loader);
 
         if (_core.loadCore(path))
         {
           ImGuiFs::PathGetDirectoryName(path, temp);
           _corePath = temp;
 
-          const char* ext = _core.getSystemInfo()->valid_extensions;
+          const char* ext = _core.getSystemInfo().validExtensions.c_str();
 
           if (ext != NULL)
           {
@@ -531,7 +547,6 @@ public:
           _audio.reset();
           _input.reset();
           _loader.reset();
-          _allocator.reset();
           _coreCfg = json::object();
           _inputCfg = json::object();
           _extensions.clear();
@@ -544,48 +559,48 @@ public:
 
   void draw()
   {
-    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoTitleBar;
+    ImGui::DockSpaceOverViewport();
 
-    const float oldWindowRounding = ImGui::GetStyle().WindowRounding;
-    ImGui::GetStyle().WindowRounding = 0;
-    const bool visible = ImGui::Begin("Docking Manager", NULL, ImVec2(0, 0), 1.0f, flags);
-    ImGui::GetStyle().WindowRounding = oldWindowRounding;
-
-    if (visible)
-    {
-      ImGui::BeginDockspace();
-
-      if (ImGui::BeginDock(ICON_FA_COG " Core"))
-        drawCoreControls();
-      ImGui::EndDock();
-
-      if (ImGui::BeginDock(ICON_FA_COMMENT " Log"))
-        _logger.draw();
-      ImGui::EndDock();
-      
-      if (ImGui::BeginDock(ICON_FA_WRENCH " Configuration"))
-        _config.draw();
-      ImGui::EndDock();
-      
-      if (ImGui::BeginDock(ICON_FA_DESKTOP " Video"))
-        _video.draw();
-      ImGui::EndDock();
-      
-      if (ImGui::BeginDock(ICON_FA_VOLUME_UP " Audio"))
-        _audio.draw();
-      ImGui::EndDock();
-      
-      if (ImGui::BeginDock(ICON_FA_GAMEPAD " Input"))
-        _input.draw();
-      ImGui::EndDock();
-
-      _memory.draw(_state == State::kRunning);
-      
-      ImGui::EndDockspace();
-    }
-
+    if (ImGui::Begin(ICON_FA_COG " Core"))
+      drawCoreControls();
     ImGui::End();
+
+    if (ImGui::Begin(ICON_FA_COMMENT " Log"))
+      _logger.draw();
+    ImGui::End();
+    
+    if (ImGui::Begin(ICON_FA_WRENCH " Configuration"))
+      _config.draw();
+    ImGui::End();
+    
+    if (ImGui::Begin(ICON_FA_DESKTOP " Video"))
+      _video.draw();
+    ImGui::End();
+    
+    if (ImGui::Begin(ICON_FA_VOLUME_UP " Audio"))
+      _audio.draw();
+    ImGui::End();
+    
+    if (ImGui::Begin(ICON_FA_GAMEPAD " Input"))
+      _input.draw();
+    ImGui::End();
+
+    _memory.draw(_state == State::kRunning);
+
+    ImGui::ShowDemoWindow();
+
+    class Test : public ImGuiAl::BufferedTerminal<65536, 256> {
+    public:
+      virtual void execute(char* const command) override {
+        printf("%s", command);
+        *command = 0;
+
+        scrollToBottom();
+      }
+    };
+
+    static Test test;
+    test.draw();
   }
 };
 
